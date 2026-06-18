@@ -37,6 +37,7 @@ function createServer(env: Env) {
   server.registerTool(
     "create_task",
     {
+      title: "Create Task",
       description: "Create a task in the Cloud Tasks store.",
       inputSchema: {
         id: z.string().min(1).max(128).optional(),
@@ -45,6 +46,7 @@ function createServer(env: Env) {
         assignee: z.string().max(128).default(""),
         status: taskStatusSchema.default("todo"),
       },
+      annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async (input) => text({ task: await createTask(env.DB, createTaskSchema.parse(input)) }),
   );
@@ -52,6 +54,7 @@ function createServer(env: Env) {
   server.registerTool(
     "list_tasks",
     {
+      title: "List Tasks",
       description: "List tasks, optionally filtering by status, assignee, tags, id, or text query.",
       inputSchema: {
         id: z.string().min(1).max(128).optional(),
@@ -62,6 +65,7 @@ function createServer(env: Env) {
         limit: z.number().int().min(1).max(100).default(50),
         offset: z.number().int().min(0).default(0),
       },
+      annotations: { readOnlyHint: true },
     },
     async (input) => text({ tasks: await listTasks(env.DB, listTaskFiltersSchema.parse(input)) }),
   );
@@ -69,8 +73,10 @@ function createServer(env: Env) {
   server.registerTool(
     "get_task",
     {
+      title: "Get Task",
       description: "Get a task by id.",
       inputSchema: { id: z.string().min(1).max(128) },
+      annotations: { readOnlyHint: true },
     },
     async ({ id }) => text({ task: await getTask(env.DB, id) }),
   );
@@ -78,6 +84,7 @@ function createServer(env: Env) {
   server.registerTool(
     "update_task",
     {
+      title: "Update Task",
       description: "Update one or more task fields.",
       inputSchema: {
         id: z.string().min(1).max(128),
@@ -86,6 +93,7 @@ function createServer(env: Env) {
         assignee: z.string().max(128).optional(),
         status: taskStatusSchema.optional(),
       },
+      annotations: { readOnlyHint: false, idempotentHint: true },
     },
     async ({ id, ...patch }) =>
       text({ task: await updateTask(env.DB, id, updateTaskSchema.parse(patch)) }),
@@ -94,8 +102,10 @@ function createServer(env: Env) {
   server.registerTool(
     "delete_task",
     {
+      title: "Delete Task",
       description: "Delete a task by id.",
       inputSchema: { id: z.string().min(1).max(128) },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
     },
     async ({ id }) => {
       await deleteTask(env.DB, id);
@@ -106,11 +116,13 @@ function createServer(env: Env) {
   server.registerTool(
     "claim_next_task",
     {
+      title: "Claim Next Task",
       description: "Pick the oldest todo task, mark it in_progress, and assign it.",
       inputSchema: {
         assignee: z.string().min(1).max(128),
         tags: z.array(z.string().min(1).max(64)).max(25).default([]),
       },
+      annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async (input) => {
       const parsed = claimTaskSchema.parse(input);
@@ -127,7 +139,7 @@ export async function handleMcp(
   ctx: ExecutionContext,
 ): Promise<Response> {
   try {
-    assertAuthorized(request, env);
+    await assertAuthorized(request, env);
     return createMcpHandler(createServer(env))(request, env, ctx);
   } catch (error) {
     return errorResponse(error);

@@ -33,7 +33,7 @@ function parseFilters(url: URL) {
 
 export async function handleRest(request: Request, env: Env): Promise<Response> {
   try {
-    assertAuthorized(request, env);
+    await assertAuthorized(request, env);
 
     const url = new URL(request.url);
     const path = url.pathname.replace(/^\/api\/tasks\/?/, "");

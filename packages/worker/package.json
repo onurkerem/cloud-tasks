@@ -7,7 +7,7 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "deploy:prepare": "node scripts/prepare-deploy.mjs",
-    "deploy:prod": "npm run deploy:prepare && npm run db:migrate:remote && npm --prefix ../website run build && wrangler deploy --assets ../website/dist --domain tasks.keremorenli.com",
+    "deploy:prod": "npm run deploy:prepare && npm run db:migrate:remote && npm --prefix ../website run build && wrangler deploy --assets ../website/dist --domain cloud-tasks.keremorenli.com --domain tasks.keremorenli.com",
     "smoke:prod": "node scripts/smoke-prod.mjs",
     "check": "wrangler check",
     "db:migrate:local": "wrangler d1 migrations apply cloud-tasks --local",

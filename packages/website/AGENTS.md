@@ -16,4 +16,4 @@ npm run dev / build / preview / check
 ## Notes
 - The hero terminal holds the copyable **agent-install prompt**. If the Worker's deploy steps,
   repo URL, or secret/migration commands change, update `installPrompt` in `src/pages/index.astro`.
-- `astro.config.ts` sets `site: "https://tasks.keremorenli.com"`. Update it if the domain changes.
+- `astro.config.ts` sets `site: "https://cloud-tasks.keremorenli.com"`. Update it if the domain changes.

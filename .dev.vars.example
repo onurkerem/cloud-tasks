@@ -1,1 +1,11 @@
 API_KEY=replace-with-a-long-random-local-secret
+
+# Auth mode: "api_key" (default) | "cloudflare_access" | "hybrid"
+# AUTH_MODE=hybrid
+
+# Required when AUTH_MODE is "cloudflare_access" or "hybrid"
+# CF_ACCESS_TEAM_DOMAIN=https://<your-team>.cloudflareaccess.com
+# CF_ACCESS_POLICY_AUD=<aud-tag-from-access-application>
+
+# Optional: comma-separated email allowlist applied after CF Access validation
+# ALLOWED_EMAILS=you@example.com

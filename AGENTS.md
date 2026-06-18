@@ -41,11 +41,13 @@ Run every command from inside the relevant package directory.
 
 ## Production expectations
 
-- The Astro website is published at `https://tasks.keremorenli.com`.
-- Production API requests are served by the Worker under `https://tasks.keremorenli.com/api`.
-- The production MCP endpoint is served by the Worker at `https://tasks.keremorenli.com/mcp`.
-- Kerem's production deploy is a single Worker custom domain that serves `packages/website/dist`
-  as static assets and runs the Worker for API/MCP paths.
+- The Astro website is published at `https://cloud-tasks.keremorenli.com`.
+- Production API requests (API key auth) are served under `https://cloud-tasks.keremorenli.com/api`.
+- The production MCP endpoint for coding agents (API key auth) is at `https://cloud-tasks.keremorenli.com/mcp`.
+- `https://tasks.keremorenli.com` is the same Worker but protected by Cloudflare Access / Managed
+  OAuth — used by ChatGPT and other OAuth MCP clients.
+- Both custom domains are declared in `wrangler.jsonc` under `custom_domains`; the single deploy
+  command serves both.
 - Keep the public self-host path generic: do not require visitors to deploy Kerem's custom domain.
 
 ## Notes

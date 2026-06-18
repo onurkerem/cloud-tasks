@@ -1,7 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 
-const workerUrl = "https://tasks.keremorenli.com";
+const workerUrl = "https://cloud-tasks.keremorenli.com";
 
 const installPrompt = `Install and deploy the open-source "Cloud Tasks" project into my own Cloudflare account, then tell me how to connect this agent to it. Do every step for me and pause only when you need my input (for example, to approve a login).
 
@@ -74,6 +74,24 @@ const mcpTools = [
   "delete_task",
   "claim_next_task",
 ];
+
+const connectCommand = `curl -fsSL https://raw.githubusercontent.com/onurkerem/cloud-tasks/main/packages/website/public/install.sh | bash`;
+
+const connectAgents = [
+  { name: "opencode", file: "~/.config/opencode/opencode.json" },
+  { name: "Claude Code", file: "~/.claude.json" },
+  { name: "Codex", file: "~/.codex/config.toml" },
+  { name: "Antigravity", file: "~/.gemini/config/mcp_config.json" },
+];
+
+const installerFeatures = [
+  "Asks for your /mcp URL and API key (input hidden, never printed)",
+  "Pick any of: opencode, Claude Code, Codex, Antigravity",
+  "Merges only the cloud-tasks entry — your other config stays untouched",
+  "Backs up each file first; sets 600 perms on any file holding your key",
+  "Optional connectivity test against your endpoint before writing",
+  "Works on macOS and Linux; needs bash + python3",
+];
 ---
 
 <Layout title="Cloud Tasks — a task backend for coding agents">
@@ -92,8 +110,14 @@ const mcpTools = [
       >
         A task backend for coding agents. Deploys to your Cloudflare account in one prompt.
       </p>
-      <p class="font-body text-on-surface-variant/70 max-w-xl mx-auto mb-12">
+      <p class="font-body text-on-surface-variant/70 max-w-xl mx-auto mb-3">
         Paste this into opencode, Claude Code, or Codex — your agent installs it for you.
+      </p>
+      <p class="font-body text-on-surface-variant max-w-xl mx-auto mb-12">
+        Already deployed?
+        <a href="#connect" class="text-tertiary hover:underline font-medium"
+          >Connect your agent in one line &rarr;</a
+        >
       </p>
 
       <!-- Hero terminal: the agent-install prompt -->
@@ -381,6 +405,88 @@ const mcpTools = [
     </div>
   </section>
 
+  <!-- Connect your agent (one-line installer) -->
+  <section class="py-32 px-8 bg-surface-bright border-y border-surface-container-low" id="connect">
+    <div class="max-w-7xl mx-auto flex flex-col lg:flex-row gap-16 items-center">
+      <div class="w-full lg:w-1/2">
+        <p class="font-mono text-xs uppercase tracking-widest text-tertiary mb-4">
+          Already deployed?
+        </p>
+        <h2
+          class="text-3xl md:text-4xl font-headline font-bold mb-6 text-on-surface tracking-tight"
+          >Connect your agent in one line</h2
+        >
+        <p class="font-body text-lg text-on-surface-variant mb-8 leading-relaxed">
+          The installer asks for your MCP URL and API key, lets you pick agents, and safely wires
+          Cloud Tasks into each one — backing up every file before it touches a thing.
+        </p>
+        <ul class="space-y-3 mb-8">
+          {
+            installerFeatures.map((feature) => (
+              <li class="flex items-start gap-3">
+                <span class="material-symbols-outlined text-tertiary mt-1">check_circle</span>
+                <span class="font-body text-on-surface-variant">{feature}</span>
+              </li>
+            ))
+          }
+        </ul>
+        <p
+          class="font-mono text-xs uppercase tracking-widest text-on-surface-variant/60 mb-3"
+        >
+          Supported agents
+        </p>
+        <div class="flex flex-wrap gap-3">
+          {
+            connectAgents.map((agent) => (
+              <span class="font-mono text-sm px-3 py-1.5 bg-surface-container-lowest border border-surface-container-highest text-on-surface rounded">
+                {agent.name}
+              </span>
+            ))
+          }
+        </div>
+      </div>
+      <div class="w-full lg:w-1/2">
+        <div
+          class="bg-inverse-surface rounded-lg text-left shadow-[0px_24px_48px_rgba(45,52,53,0.15)] ring-1 ring-white/10 w-full"
+        >
+          <div
+            class="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]"
+          >
+            <div class="flex items-center gap-2">
+              <div class="w-3 h-3 rounded-full bg-[#ff5f57]"></div>
+              <div class="w-3 h-3 rounded-full bg-[#febc2e]"></div>
+              <div class="w-3 h-3 rounded-full bg-[#28c840]"></div>
+            </div>
+            <span class="text-xs font-mono text-on-surface-variant/40 tracking-wide"
+              >one-line install</span
+            >
+            <button
+              id="connect-copy-btn"
+              class="flex items-center gap-1.5 text-on-surface-variant/40 hover:text-inverse-on-surface transition-colors cursor-pointer p-1 rounded hover:bg-white/[0.08]"
+              title="Copy command to clipboard"
+            >
+              <span class="material-symbols-outlined copy-icon text-base">content_copy</span
+              ><span class="copy-label text-xs font-mono">Copy</span>
+            </button>
+          </div>
+          <div class="px-6 py-6">
+            <pre
+              class="font-mono text-sm leading-relaxed text-inverse-on-surface whitespace-pre-wrap break-words"
+            >{connectCommand}</pre>
+          </div>
+        </div>
+        <p class="font-body text-sm text-on-surface-variant mt-4 text-center">
+          Works on macOS and Linux. Requires <code class="font-mono">bash</code> +
+          <code class="font-mono">python3</code>. Review it first on
+          <a
+            href="https://github.com/onurkerem/cloud-tasks/blob/main/packages/website/public/install.sh"
+            class="text-tertiary hover:underline">GitHub</a
+          >.
+        </p>
+      </div>
+    </div>
+  </section>
+
   <!-- Self-host / Config -->
   <section class="py-32 px-8 bg-surface" id="self-host">
     <div class="max-w-4xl mx-auto text-center">
@@ -463,15 +569,15 @@ const mcpTools = [
   </footer>
 </Layout>
 
-<script is:inline define:vars={{ installPrompt }}>
-  const btn = document.getElementById("hero-copy-btn");
-  if (btn) {
+<script is:inline define:vars={{ installPrompt, connectCommand }}>
+  const setupCopy = (btn, text, resetLabel) => {
+    if (!btn) return;
     btn.addEventListener("click", async () => {
       try {
-        await navigator.clipboard.writeText(installPrompt);
+        await navigator.clipboard.writeText(text);
       } catch {
         const ta = document.createElement("textarea");
-        ta.value = installPrompt;
+        ta.value = text;
         document.body.appendChild(ta);
         ta.select();
         document.execCommand("copy");
@@ -483,8 +589,10 @@ const mcpTools = [
       if (label) label.textContent = "Copied";
       setTimeout(() => {
         if (icon) icon.textContent = "content_copy";
-        if (label) label.textContent = "Copy prompt";
+        if (label) label.textContent = resetLabel;
       }, 2000);
     });
-  }
+  };
+  setupCopy(document.getElementById("hero-copy-btn"), installPrompt, "Copy prompt");
+  setupCopy(document.getElementById("connect-copy-btn"), connectCommand, "Copy");
 </script>
