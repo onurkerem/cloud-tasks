@@ -2,13 +2,30 @@
 set -euo pipefail
 umask 077
 
+if [ -z "${BASH_SOURCE[0]:-}" ]; then
+  _ct_yes=0
+  for _a in "$@"; do
+    if [ "$_a" = "--yes" ]; then _ct_yes=1; fi
+  done
+  _ct_tmp=$(mktemp 2>/dev/null) || { echo "cloud-tasks: mktemp failed" >&2; exit 1; }
+  chmod 600 "$_ct_tmp"
+  if cat > "$_ct_tmp"; then :; else
+    echo "cloud-tasks: failed to buffer the installer" >&2; rm -f "$_ct_tmp"; exit 1
+  fi
+  if [ "$_ct_yes" = "1" ]; then
+    CT_REEXEC=1 exec bash "$_ct_tmp" "$@" </dev/null
+  else
+    CT_REEXEC=1 exec bash "$_ct_tmp" "$@" </dev/tty
+  fi
+fi
+
 VERSION="1.0.0"
 SERVER_NAME="cloud-tasks"
 PROTOCOL_VERSION="2025-06-18"
 
 PY_JSON=""
 PY_TOML=""
-trap 'rm -f "${PY_JSON:-}" "${PY_TOML:-}" 2>/dev/null || true' EXIT
+trap 'rm -f "${PY_JSON:-}" "${PY_TOML:-}" 2>/dev/null || true; if [ "${CT_REEXEC:-0}" = "1" ] && [ -n "${0:-}" ]; then rm -f "$0" 2>/dev/null || true; fi' EXIT
 trap 'exit 130' INT
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
