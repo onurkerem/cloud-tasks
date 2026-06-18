@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cloud-tasks",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-18",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "observability": {
+    "enabled": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cloud-tasks",
+      "database_id": "8fd50548-25dd-4e06-b5f9-0bf74ef956a2",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

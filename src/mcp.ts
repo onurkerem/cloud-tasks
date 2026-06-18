@@ -1,0 +1,135 @@
+import { createMcpHandler } from "agents/mcp";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+import { assertAuthorized } from "./auth";
+import { errorResponse } from "./http";
+import {
+  claimTaskSchema,
+  createTaskSchema,
+  listTaskFiltersSchema,
+  taskStatusSchema,
+  updateTaskSchema,
+} from "./schemas";
+import {
+  claimNextTask,
+  createTask,
+  deleteTask,
+  getTask,
+  listTasks,
+  updateTask,
+} from "./repository";
+import type { Env } from "./types";
+
+function text(data: unknown) {
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: typeof data === "string" ? data : JSON.stringify(data, null, 2),
+      },
+    ],
+  };
+}
+
+function createServer(env: Env) {
+  const server = new McpServer({ name: "cloud-tasks", version: "1.0.0" });
+
+  server.registerTool(
+    "create_task",
+    {
+      description: "Create a task in the Cloud Tasks store.",
+      inputSchema: {
+        id: z.string().min(1).max(128).optional(),
+        description: z.string().min(1).max(50_000),
+        tags: z.array(z.string().min(1).max(64)).max(25).default([]),
+        assignee: z.string().max(128).default(""),
+        status: taskStatusSchema.default("todo"),
+      },
+    },
+    async (input) => text({ task: await createTask(env.DB, createTaskSchema.parse(input)) }),
+  );
+
+  server.registerTool(
+    "list_tasks",
+    {
+      description: "List tasks, optionally filtering by status, assignee, tags, id, or text query.",
+      inputSchema: {
+        id: z.string().min(1).max(128).optional(),
+        status: taskStatusSchema.optional(),
+        assignee: z.string().max(128).optional(),
+        tags: z.array(z.string().min(1).max(64)).max(25).default([]),
+        q: z.string().min(1).max(500).optional(),
+        limit: z.number().int().min(1).max(100).default(50),
+        offset: z.number().int().min(0).default(0),
+      },
+    },
+    async (input) => text({ tasks: await listTasks(env.DB, listTaskFiltersSchema.parse(input)) }),
+  );
+
+  server.registerTool(
+    "get_task",
+    {
+      description: "Get a task by id.",
+      inputSchema: { id: z.string().min(1).max(128) },
+    },
+    async ({ id }) => text({ task: await getTask(env.DB, id) }),
+  );
+
+  server.registerTool(
+    "update_task",
+    {
+      description: "Update one or more task fields.",
+      inputSchema: {
+        id: z.string().min(1).max(128),
+        description: z.string().min(1).max(50_000).optional(),
+        tags: z.array(z.string().min(1).max(64)).max(25).optional(),
+        assignee: z.string().max(128).optional(),
+        status: taskStatusSchema.optional(),
+      },
+    },
+    async ({ id, ...patch }) =>
+      text({ task: await updateTask(env.DB, id, updateTaskSchema.parse(patch)) }),
+  );
+
+  server.registerTool(
+    "delete_task",
+    {
+      description: "Delete a task by id.",
+      inputSchema: { id: z.string().min(1).max(128) },
+    },
+    async ({ id }) => {
+      await deleteTask(env.DB, id);
+      return text({ deleted: true, id });
+    },
+  );
+
+  server.registerTool(
+    "claim_next_task",
+    {
+      description: "Pick the oldest todo task, mark it in_progress, and assign it.",
+      inputSchema: {
+        assignee: z.string().min(1).max(128),
+        tags: z.array(z.string().min(1).max(64)).max(25).default([]),
+      },
+    },
+    async (input) => {
+      const parsed = claimTaskSchema.parse(input);
+      return text({ task: await claimNextTask(env.DB, parsed.assignee, parsed.tags) });
+    },
+  );
+
+  return server;
+}
+
+export async function handleMcp(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  try {
+    assertAuthorized(request, env);
+    return createMcpHandler(createServer(env))(request, env, ctx);
+  } catch (error) {
+    return errorResponse(error);
+  }
+}

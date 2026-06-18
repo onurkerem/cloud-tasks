@@ -1,0 +1,36 @@
+{
+  "name": "cloud-tasks",
+  "version": "1.0.0",
+  "description": "Cloudflare Workers task backend with REST and MCP APIs backed by D1.",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:prepare": "node scripts/prepare-deploy.mjs",
+    "deploy:prod": "npm run deploy:prepare && npm run db:migrate:remote && wrangler deploy",
+    "smoke:prod": "node scripts/smoke-prod.mjs",
+    "check": "wrangler check",
+    "db:migrate:local": "wrangler d1 migrations apply cloud-tasks --local",
+    "db:migrate:remote": "wrangler d1 migrations apply cloud-tasks --remote",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "types": "wrangler types"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "agents": "^0.16.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.16.16",
+    "@types/node": "^25.9.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9",
+    "wrangler": "^4.101.0"
+  }
+}
