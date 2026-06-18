@@ -2,6 +2,16 @@ import { z } from "zod";
 
 export const taskStatusSchema = z.enum(["todo", "in_progress", "done"]);
 
+export const taskSchema = z.object({
+  id: z.string(),
+  description: z.string(),
+  tags: z.array(z.string()),
+  assignee: z.string(),
+  status: taskStatusSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
 const tagSchema = z
   .string()
   .trim()

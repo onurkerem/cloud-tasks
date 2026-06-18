@@ -7,6 +7,7 @@ import {
   claimTaskSchema,
   createTaskSchema,
   listTaskFiltersSchema,
+  taskSchema,
   taskStatusSchema,
   updateTaskSchema,
 } from "./schemas";
@@ -20,14 +21,15 @@ import {
 } from "./repository";
 import type { Env } from "./types";
 
-function text(data: unknown) {
+function result(data: unknown) {
   return {
     content: [
       {
         type: "text" as const,
-        text: typeof data === "string" ? data : JSON.stringify(data, null, 2),
+        text: JSON.stringify(data, null, 2),
       },
     ],
+    structuredContent: data as Record<string, unknown>,
   };
 }
 
@@ -46,9 +48,10 @@ function createServer(env: Env) {
         assignee: z.string().max(128).default(""),
         status: taskStatusSchema.default("todo"),
       },
+      outputSchema: { task: taskSchema },
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async (input) => text({ task: await createTask(env.DB, createTaskSchema.parse(input)) }),
+    async (input) => result({ task: await createTask(env.DB, createTaskSchema.parse(input)) }),
   );
 
   server.registerTool(
@@ -65,9 +68,10 @@ function createServer(env: Env) {
         limit: z.number().int().min(1).max(100).default(50),
         offset: z.number().int().min(0).default(0),
       },
+      outputSchema: { tasks: z.array(taskSchema) },
       annotations: { readOnlyHint: true },
     },
-    async (input) => text({ tasks: await listTasks(env.DB, listTaskFiltersSchema.parse(input)) }),
+    async (input) => result({ tasks: await listTasks(env.DB, listTaskFiltersSchema.parse(input)) }),
   );
 
   server.registerTool(
@@ -76,9 +80,10 @@ function createServer(env: Env) {
       title: "Get Task",
       description: "Get a task by id.",
       inputSchema: { id: z.string().min(1).max(128) },
+      outputSchema: { task: taskSchema },
       annotations: { readOnlyHint: true },
     },
-    async ({ id }) => text({ task: await getTask(env.DB, id) }),
+    async ({ id }) => result({ task: await getTask(env.DB, id) }),
   );
 
   server.registerTool(
@@ -93,10 +98,11 @@ function createServer(env: Env) {
         assignee: z.string().max(128).optional(),
         status: taskStatusSchema.optional(),
       },
+      outputSchema: { task: taskSchema },
       annotations: { readOnlyHint: false, idempotentHint: true },
     },
     async ({ id, ...patch }) =>
-      text({ task: await updateTask(env.DB, id, updateTaskSchema.parse(patch)) }),
+      result({ task: await updateTask(env.DB, id, updateTaskSchema.parse(patch)) }),
   );
 
   server.registerTool(
@@ -105,11 +111,12 @@ function createServer(env: Env) {
       title: "Delete Task",
       description: "Delete a task by id.",
       inputSchema: { id: z.string().min(1).max(128) },
+      outputSchema: { deleted: z.boolean(), id: z.string() },
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
     },
     async ({ id }) => {
       await deleteTask(env.DB, id);
-      return text({ deleted: true, id });
+      return result({ deleted: true, id });
     },
   );
 
@@ -122,11 +129,12 @@ function createServer(env: Env) {
         assignee: z.string().min(1).max(128),
         tags: z.array(z.string().min(1).max(64)).max(25).default([]),
       },
+      outputSchema: { task: taskSchema.nullable() },
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async (input) => {
       const parsed = claimTaskSchema.parse(input);
-      return text({ task: await claimNextTask(env.DB, parsed.assignee, parsed.tags) });
+      return result({ task: await claimNextTask(env.DB, parsed.assignee, parsed.tags) });
     },
   );
 

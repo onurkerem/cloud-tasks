@@ -182,13 +182,20 @@ describe("MCP task tools", () => {
         },
       },
     });
-    const callResult = created.body.result as { content: Array<{ text: string }> };
+    const callResult = created.body.result as {
+      content: Array<{ text: string }>;
+      structuredContent: { task: { id: string; tags: string[]; status: string } };
+    };
     const payload = JSON.parse(callResult.content[0].text) as {
       task: { id: string; tags: string[]; status: string };
     };
     expect(payload.task.id).toBe("mcp-task-1");
     expect(payload.task.tags).toEqual(["backend", "mcp"]);
     expect(payload.task.status).toBe("todo");
+
+    expect(callResult.structuredContent.task.id).toBe("mcp-task-1");
+    expect(callResult.structuredContent.task.tags).toEqual(["backend", "mcp"]);
+    expect(callResult.structuredContent.task.status).toBe("todo");
 
     const deleteResponse = await api("/api/tasks/mcp-task-1", { method: "DELETE" });
     expect(deleteResponse.status).toBe(204);
