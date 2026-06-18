@@ -25,6 +25,7 @@ Use `Authorization: Bearer <API_KEY>` or `x-api-key: <API_KEY>`.
 
 ## REST API
 
+- `GET /api`
 - `GET /api/tasks?status=todo&assignee=agent-a&tag=backend&q=text&limit=50&offset=0`
 - `POST /api/tasks`
 - `GET /api/tasks/:id`
@@ -58,16 +59,14 @@ The MCP endpoint uses the same API key header as REST.
 
 ## Deploy
 
+Generic self-hosted Worker deploy:
+
 ```sh
 npx wrangler login
 npm run deploy:prepare
-```
-
-Then:
-
-```sh
+npm run db:migrate:remote
 npx wrangler secret put API_KEY
-npm run deploy:prod
+npm run deploy
 ```
 
 Production smoke test:
@@ -75,3 +74,17 @@ Production smoke test:
 ```sh
 WORKER_URL=https://cloud-tasks.<your-subdomain>.workers.dev API_KEY=<secret> npm run smoke:prod
 ```
+
+Maintainer production:
+
+```sh
+npm run deploy:prod
+WORKER_URL=https://tasks.keremorenli.com API_KEY=<secret> npm run smoke:prod
+```
+
+`deploy:prod` builds `packages/website`, deploys the Astro output as Worker static assets, and
+attaches the Worker custom domain.
+
+- Website: `https://tasks.keremorenli.com`
+- API: `https://tasks.keremorenli.com/api`
+- MCP: `https://tasks.keremorenli.com/mcp`

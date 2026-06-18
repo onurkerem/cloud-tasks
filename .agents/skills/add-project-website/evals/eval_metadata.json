@@ -1,0 +1,90 @@
+{
+  "eval_id": 1,
+  "eval_name": "env-vault-rust",
+  "prompt": "I have a Rust CLI tool called 'env-vault' that encrypts .env files and manages secrets. It's in a GitHub repo at github.com/user/env-vault. The main binary is in src/main.rs, it has subcommands: 'encrypt', 'decrypt', 'rotate', and 'status'. It uses a config file at ~/.env-vault/config.toml. It can integrate with AWS KMS and GCP KMS for key management. I want to add a marketing website to this project. Can you set it up?",
+  "assertions": [
+    {
+      "name": "has-monorepo-structure",
+      "type": "file_exists",
+      "description": "Output includes packages/ directory with both cli and website subdirectories"
+    },
+    {
+      "name": "has-astro-config",
+      "type": "file_exists",
+      "description": "packages/website/astro.config.ts exists and uses Astro with tailwindcss vite plugin"
+    },
+    {
+      "name": "has-global-css-theme",
+      "type": "content_contains",
+      "description": "global.css uses Tailwind v4 @theme directive with color tokens (surface, primary, tertiary)",
+      "file": "packages/website/src/styles/global.css",
+      "contains": ["@theme", "--color-surface", "--color-primary", "--color-tertiary"]
+    },
+    {
+      "name": "has-layout-astro",
+      "type": "file_exists",
+      "description": "packages/website/src/layouts/Layout.astro exists with Google Fonts (Space Grotesk, Inter)"
+    },
+    {
+      "name": "has-hero-section",
+      "type": "content_contains",
+      "description": "index.astro has a hero section with the tool name 'env-vault' and an install command in a terminal component",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["env-vault", "terminal", "install"]
+    },
+    {
+      "name": "has-features-section",
+      "type": "content_contains",
+      "description": "index.astro has features covering encrypt, decrypt, rotate capabilities with Material Symbols icons",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["encrypt", "decrypt", "rotate", "material-symbols-outlined"]
+    },
+    {
+      "name": "has-usage-examples",
+      "type": "content_contains",
+      "description": "Usage section shows actual CLI subcommand examples (encrypt, decrypt, rotate, status)",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["encrypt", "decrypt"]
+    },
+    {
+      "name": "has-config-section",
+      "type": "content_contains",
+      "description": "Has a setup/config section showing the config.toml format",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["config.toml", "setup"]
+    },
+    {
+      "name": "has-overhang-pattern",
+      "type": "content_contains",
+      "description": "Hero terminal uses negative margin overhang pattern (-mb-16 z-20 or similar)",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["-mb-", "z-20"]
+    },
+    {
+      "name": "has-updated-agents-md",
+      "type": "file_exists",
+      "description": "Root AGENTS.md mentions the website package and includes website dev/build commands"
+    },
+    {
+      "name": "has-tailwind-v4-setup",
+      "type": "content_contains",
+      "description": "No tailwind.config.js file exists; Tailwind is loaded via @tailwindcss/vite plugin and @import 'tailwindcss'",
+      "file": "packages/website/src/styles/global.css",
+      "contains": ["@import \"tailwindcss\""]
+    },
+    {
+      "name": "uses-space-grotesk-inter",
+      "type": "content_contains",
+      "description": "Uses Space Grotesk for headlines and Inter for body text",
+      "file": "packages/website/src/styles/global.css",
+      "contains": ["Space Grotesk", "Inter"]
+    },
+    {
+      "name": "website-is-single-page",
+      "type": "file_count",
+      "description": "Only one page file exists in src/pages/ (index.astro) — no routing",
+      "path": "packages/website/src/pages/",
+      "expected_count": 1
+    }
+  ]
+}

@@ -1,0 +1,490 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+const workerUrl = "https://tasks.keremorenli.com";
+
+const installPrompt = `Install and deploy the open-source "Cloud Tasks" project into my own Cloudflare account, then tell me how to connect this agent to it. Do every step for me and pause only when you need my input (for example, to approve a login).
+
+1. Clone the repo and work inside it:
+   git clone https://github.com/onurkerem/cloud-tasks.git
+   The Worker source lives in packages/worker/ — run every command from there.
+
+2. Reset the D1 binding so a fresh database is created in MY account. In packages/worker/wrangler.jsonc, set d1_databases[0].database_id to "00000000-0000-0000-0000-000000000000".
+
+3. Run: npm install
+
+4. Authenticate Wrangler. Run: npx wrangler login
+   Tell me to complete the browser approval. If I can't use a browser, ask me for a CLOUDFLARE_API_TOKEN instead.
+
+5. Create the D1 database and write its id back into wrangler.jsonc:
+   npm run deploy:prepare
+
+6. Apply the schema to the remote database:
+   npm run db:migrate:remote
+
+7. Generate a strong API key (32 random hex bytes) and store it as a Worker secret:
+   npx wrangler secret put API_KEY
+   Enter the generated value and remember it.
+
+8. Deploy the Worker:
+   npm run deploy
+
+9. Capture the deployed URL (https://cloud-tasks.<my-subdomain>.workers.dev, or your custom domain if you added one) and run the production smoke test:
+   WORKER_URL=<that url> API_KEY=<the key> npm run smoke:prod
+   If anything fails, read the error, fix it, and retry.
+
+10. Do NOT modify this agent's own config. When done, report back:
+    - the Worker URL,
+    - the API_KEY value,
+    - the REST API index (<url>/api),
+    - the MCP endpoint (<url>/mcp), called with the header: Authorization: Bearer <API_KEY>.`;
+
+const wranglerSnippet = `{
+  "name": "cloud-tasks",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cloud-tasks",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ]
+}`;
+
+const devVarsSnippet = `API_KEY=replace-with-a-long-random-secret`;
+
+const manualCommands = `npx wrangler login
+npm run deploy:prepare
+npm run db:migrate:remote
+npx wrangler secret put API_KEY
+npm run deploy`;
+
+const createTaskBody = '{"description":"Ship the API","tags":["backend"]}';
+const claimTaskBody = '{"assignee":"agent-b","tags":["backend"]}';
+const mcpListBody = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}';
+
+const mcpTools = [
+  "create_task",
+  "list_tasks",
+  "get_task",
+  "update_task",
+  "delete_task",
+  "claim_next_task",
+];
+---
+
+<Layout title="Cloud Tasks — a task backend for coding agents">
+  <!-- Hero -->
+  <header
+    class="pt-32 pb-24 px-8 relative overflow-hidden bg-surface-bright flex flex-col items-center text-center border-b border-surface-container-low"
+  >
+    <div class="max-w-4xl mx-auto relative z-10 w-full">
+      <h1
+        class="text-6xl md:text-8xl font-headline font-extrabold tracking-tighter text-on-surface mb-6 leading-none"
+      >
+        Cloud Tasks
+      </h1>
+      <p
+        class="text-xl md:text-2xl font-body text-on-surface-variant max-w-2xl mx-auto mb-5 font-light"
+      >
+        A task backend for coding agents. Deploys to your Cloudflare account in one prompt.
+      </p>
+      <p class="font-body text-on-surface-variant/70 max-w-xl mx-auto mb-12">
+        Paste this into opencode, Claude Code, or Codex — your agent installs it for you.
+      </p>
+
+      <!-- Hero terminal: the agent-install prompt -->
+      <div
+        class="bg-inverse-surface rounded-lg max-w-3xl mx-auto text-left shadow-[0px_24px_48px_rgba(45,52,53,0.15)] ring-1 ring-white/10 relative -mb-16 z-20"
+      >
+        <div
+          class="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]"
+        >
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-[#ff5f57]"></div>
+            <div class="w-3 h-3 rounded-full bg-[#febc2e]"></div>
+            <div class="w-3 h-3 rounded-full bg-[#28c840]"></div>
+          </div>
+          <span class="text-xs font-mono text-on-surface-variant/40 tracking-wide"
+            >agent prompt</span
+          >
+          <button
+            id="hero-copy-btn"
+            class="flex items-center gap-1.5 text-on-surface-variant/40 hover:text-inverse-on-surface transition-colors cursor-pointer p-1 rounded hover:bg-white/[0.08]"
+            title="Copy prompt to clipboard"
+          >
+            <span class="material-symbols-outlined copy-icon text-base">content_copy</span
+            ><span class="copy-label text-xs font-mono">Copy prompt</span>
+          </button>
+        </div>
+        <div class="px-6 py-5 max-h-80 overflow-y-auto">
+          <pre
+            class="font-mono text-xs md:text-sm leading-relaxed text-inverse-on-surface whitespace-pre-wrap break-words"
+          >{installPrompt}</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grid background -->
+    <div
+      class="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-6xl h-full pointer-events-none opacity-[0.03]"
+      style="background-image: linear-gradient(#2d3435 1px, transparent 1px), linear-gradient(90deg, #2d3435 1px, transparent 1px); background-size: 64px 64px;"
+    >
+    </div>
+  </header>
+
+  <!-- Features -->
+  <section class="py-32 px-8 bg-surface-container-low mt-16" id="features">
+    <div class="max-w-7xl mx-auto">
+      <h2
+        class="text-3xl md:text-4xl font-headline font-bold mb-16 text-center text-on-surface tracking-tight"
+      >
+        Built for agents, ready in minutes
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div
+          class="bg-surface-container-lowest p-8 border border-surface-container-highest transition-colors hover:border-outline-variant/30 group"
+        >
+          <div
+            class="w-12 h-12 bg-surface-container flex items-center justify-center rounded mb-6 text-on-surface group-hover:bg-primary group-hover:text-on-primary transition-colors"
+          >
+            <span class="material-symbols-outlined">database</span>
+          </div>
+          <h3 class="text-xl font-headline font-bold mb-3 text-on-surface"
+            >D1-backed task store</h3
+          >
+          <p class="font-body text-on-surface-variant leading-relaxed">
+            Every task is a durable record in Cloudflare D1 — description, tags, assignee, and
+            status (todo / in_progress / done) — indexed for fast filtered queries.
+          </p>
+        </div>
+        <div
+          class="bg-surface-container-lowest p-8 border border-surface-container-highest transition-colors hover:border-outline-variant/30 group"
+        >
+          <div
+            class="w-12 h-12 bg-surface-container flex items-center justify-center rounded mb-6 text-on-surface group-hover:bg-primary group-hover:text-on-primary transition-colors"
+          >
+            <span class="material-symbols-outlined">hub</span>
+          </div>
+          <h3 class="text-xl font-headline font-bold mb-3 text-on-surface"
+            >Two APIs, one backend</h3
+          >
+          <p class="font-body text-on-surface-variant leading-relaxed">
+            A REST CRUD API at <code class="font-mono text-sm">/api/tasks</code> and a Model
+            Context Protocol endpoint at <code class="font-mono text-sm">/mcp</code> that exposes
+            the same data as agent tools.
+          </p>
+        </div>
+        <div
+          class="bg-surface-container-lowest p-8 border border-surface-container-highest transition-colors hover:border-outline-variant/30 group"
+        >
+          <div
+            class="w-12 h-12 bg-surface-container flex items-center justify-center rounded mb-6 text-on-surface group-hover:bg-primary group-hover:text-on-primary transition-colors"
+          >
+            <span class="material-symbols-outlined">shield</span>
+          </div>
+          <h3 class="text-xl font-headline font-bold mb-3 text-on-surface"
+            >Secure by default, free to run</h3
+          >
+          <p class="font-body text-on-surface-variant leading-relaxed">
+            Every request is gated by an API key (<code class="font-mono text-sm"
+              >Authorization: Bearer</code
+            > or <code class="font-mono text-sm">x-api-key</code>). Runs entirely on Cloudflare's
+            free-tier Workers + D1.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works: flow + MCP tools -->
+  <section class="py-32 px-8 bg-surface border-y border-surface-container-low" id="how-it-works">
+    <div class="max-w-5xl mx-auto">
+      <h2
+        class="text-3xl md:text-4xl font-headline font-bold mb-8 text-center text-on-surface tracking-tight"
+      >
+        How it works
+      </h2>
+      <p class="font-body text-lg text-on-surface-variant mb-16 text-center max-w-3xl mx-auto">
+        Your coding agent talks to a single MCP endpoint. The Worker turns each tool call into a D1
+        query and returns the result.
+      </p>
+
+      <div
+        class="bg-surface-container-lowest p-8 md:p-12 border border-surface-container-highest flex flex-col md:flex-row gap-6 md:gap-4 items-stretch"
+      >
+        <div class="flex-1 flex flex-col items-center justify-center text-center">
+          <div
+            class="w-14 h-14 bg-surface-container flex items-center justify-center rounded mb-4 text-on-surface"
+          >
+            <span class="material-symbols-outlined">smart_toy</span>
+          </div>
+          <h4 class="font-headline font-bold text-on-surface">Your agent</h4>
+          <p class="font-body text-sm text-on-surface-variant mt-1">
+            opencode · Claude Code · Codex
+          </p>
+        </div>
+        <div class="hidden md:flex flex-col items-center justify-center text-outline-variant">
+          <span class="material-symbols-outlined leading-none">arrow_forward</span>
+        </div>
+        <div class="flex md:hidden flex-col items-center justify-center text-outline-variant">
+          <span class="material-symbols-outlined leading-none">arrow_downward</span>
+        </div>
+        <div class="flex-1 flex flex-col items-center justify-center text-center">
+          <div
+            class="w-14 h-14 bg-surface-container flex items-center justify-center rounded mb-4 text-on-surface"
+          >
+            <span class="material-symbols-outlined">cloud</span>
+          </div>
+          <h4 class="font-headline font-bold text-on-surface">Cloud Tasks Worker</h4>
+          <p class="font-body text-sm text-on-surface-variant mt-1">
+            <code class="font-mono">POST /mcp</code> · Bearer API key
+          </p>
+        </div>
+        <div class="hidden md:flex flex-col items-center justify-center text-outline-variant">
+          <span class="material-symbols-outlined leading-none">arrow_forward</span>
+        </div>
+        <div class="flex md:hidden flex-col items-center justify-center text-outline-variant">
+          <span class="material-symbols-outlined leading-none">arrow_downward</span>
+        </div>
+        <div class="flex-1 flex flex-col items-center justify-center text-center">
+          <div
+            class="w-14 h-14 bg-surface-container flex items-center justify-center rounded mb-4 text-on-surface"
+          >
+            <span class="material-symbols-outlined">database</span>
+          </div>
+          <h4 class="font-headline font-bold text-on-surface">Cloudflare D1</h4>
+          <p class="font-body text-sm text-on-surface-variant mt-1">Persistent task records</p>
+        </div>
+      </div>
+
+      <div class="mt-12">
+        <p
+          class="text-center font-mono text-xs uppercase tracking-widest text-on-surface-variant/60 mb-5"
+        >
+          MCP tools exposed at /mcp
+        </p>
+        <div class="flex flex-wrap justify-center gap-3">
+          {
+            mcpTools.map((tool) => (
+              <span class="font-mono text-sm px-3 py-1.5 bg-surface-container-lowest border border-surface-container-highest text-on-surface rounded">
+                {tool}
+              </span>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Usage -->
+  <section class="py-32 px-8 bg-surface-container-low" id="usage">
+    <div class="max-w-7xl mx-auto flex flex-col lg:flex-row gap-16 items-center">
+      <div class="w-full lg:w-1/2">
+        <h2 class="text-3xl md:text-4xl font-headline font-bold mb-6 text-on-surface tracking-tight"
+          >Usage</h2
+        >
+        <p class="font-body text-lg text-on-surface-variant mb-8 leading-relaxed">
+          Talk to Cloud Tasks however you like — raw REST for scripts and dashboards, or the MCP
+          endpoint for agents. Both share one API key and one task store.
+        </p>
+        <div class="space-y-4">
+          <div class="flex items-start gap-3">
+            <span class="material-symbols-outlined text-tertiary mt-1">check_circle</span>
+            <p class="font-body text-on-surface-variant"
+              >Create tasks with tags and an assignee; filter by status, assignee, tag, or free
+              text.</p
+            >
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="material-symbols-outlined text-tertiary mt-1">check_circle</span>
+            <p class="font-body text-on-surface-variant"
+              >Atomically claim the oldest <code class="font-mono text-sm">todo</code> task — perfect
+              for multi-agent work queues.</p
+            >
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="material-symbols-outlined text-tertiary mt-1">check_circle</span>
+            <p class="font-body text-on-surface-variant"
+              >Point any MCP-compatible agent at <code class="font-mono text-sm">/mcp</code> and it
+              gets six task tools out of the box.</p
+            >
+          </div>
+        </div>
+      </div>
+      <div class="w-full lg:w-1/2">
+        <div
+          class="bg-inverse-surface rounded-lg p-6 text-left shadow-[0px_24px_48px_rgba(45,52,53,0.06)] ring-1 ring-white/10 w-full"
+        >
+          <div
+            class="flex items-center justify-between mb-4 border-b border-surface-variant/20 pb-2"
+          >
+            <span class="text-xs font-mono text-on-surface-variant uppercase tracking-widest"
+              >REST</span
+            >
+          </div>
+          <div class="font-mono text-sm space-y-4">
+            <div>
+              <span class="text-on-surface-variant opacity-70"># Create a task</span><br />
+              <span class="text-[#8b9cf7]">curl</span>
+              <span class="text-on-surface-variant/70">-X POST</span>
+              <span class="text-inverse-on-surface">{workerUrl}/api/tasks</span><br />
+              <span class="text-on-surface-variant/70">  -H</span>
+              <span class="text-inverse-on-surface">"Authorization: Bearer $API_KEY"</span>
+              <span class="text-on-surface-variant/70">-H</span>
+              <span class="text-inverse-on-surface">"content-type: application/json"</span><br />
+              <span class="text-on-surface-variant/70">  -d</span>
+              <span class="text-inverse-on-surface">'{createTaskBody}'</span>
+            </div>
+            <div>
+              <span class="text-on-surface-variant opacity-70"># Filter the backlog</span><br />
+              <span class="text-[#8b9cf7]">curl</span>
+              <span class="text-on-surface-variant/70">-H</span>
+              <span class="text-inverse-on-surface">"Authorization: Bearer $API_KEY"</span><br />
+              <span class="text-inverse-on-surface"
+                >  "{workerUrl}/api/tasks?status=todo&tag=backend"</span
+              >
+            </div>
+            <div>
+              <span class="text-on-surface-variant opacity-70"># Claim the next task (atomic)</span
+              ><br />
+              <span class="text-[#8b9cf7]">curl</span>
+              <span class="text-on-surface-variant/70">-X POST</span>
+              <span class="text-inverse-on-surface">{workerUrl}/api/tasks/claim</span><br />
+              <span class="text-on-surface-variant/70">  -d</span>
+              <span class="text-inverse-on-surface">'{claimTaskBody}'</span>
+            </div>
+          </div>
+          <div
+            class="flex items-center justify-between mt-6 mb-4 border-b border-surface-variant/20 pb-2"
+          >
+            <span class="text-xs font-mono text-on-surface-variant uppercase tracking-widest"
+              >MCP</span
+            >
+          </div>
+          <div class="font-mono text-sm space-y-4">
+            <div>
+              <span class="text-on-surface-variant opacity-70"># List tools over the MCP endpoint</span
+              ><br />
+              <span class="text-[#8b9cf7]">curl</span>
+              <span class="text-on-surface-variant/70">-X POST</span>
+              <span class="text-inverse-on-surface">{workerUrl}/mcp</span><br />
+              <span class="text-on-surface-variant/70">  -d</span>
+              <span class="text-inverse-on-surface">'{mcpListBody}'</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Self-host / Config -->
+  <section class="py-32 px-8 bg-surface" id="self-host">
+    <div class="max-w-4xl mx-auto text-center">
+      <h2 class="text-3xl md:text-4xl font-headline font-bold mb-6 text-on-surface tracking-tight"
+        >Prefer the manual path?</h2
+      >
+      <p class="font-body text-lg text-on-surface-variant mb-12">
+        Clone the repo, set a placeholder D1 id, and run the deploy script. Everything lives in
+        <code class="font-mono text-sm">packages/worker/</code>.
+      </p>
+
+      <div class="grid md:grid-cols-2 gap-6 text-left mb-10">
+        <div>
+          <p
+            class="font-mono text-xs uppercase tracking-widest text-on-surface-variant/60 mb-3"
+          >
+            packages/worker/wrangler.jsonc
+          </p>
+          <div
+            class="bg-surface-container-low p-5 border border-outline-variant/15 w-full"
+          >
+            <pre
+              class="font-mono text-xs text-on-surface overflow-x-auto"><code>{wranglerSnippet}</code></pre>
+          </div>
+        </div>
+        <div>
+          <p
+            class="font-mono text-xs uppercase tracking-widest text-on-surface-variant/60 mb-3"
+          >
+            packages/worker/.dev.vars
+          </p>
+          <div
+            class="bg-surface-container-low p-5 border border-outline-variant/15 w-full"
+          >
+            <pre
+              class="font-mono text-xs text-on-surface overflow-x-auto"><code>{devVarsSnippet}</code></pre>
+          </div>
+          <p class="font-body text-sm text-on-surface-variant mt-6 mb-3">
+            <span class="material-symbols-outlined text-sm align-middle">key</span>
+            Set the production secret with
+            <code class="font-mono text-sm">wrangler secret put API_KEY</code>.
+          </p>
+        </div>
+      </div>
+
+      <div class="bg-surface-container-low p-5 border border-outline-variant/15 text-left">
+        <pre class="font-mono text-sm text-on-surface overflow-x-auto"><code>{manualCommands}</code></pre>
+      </div>
+
+      <p class="font-body text-sm text-on-surface-variant mt-8">
+        Need an API token or your account ID? Grab them from the
+        <a
+          href="https://dash.cloudflare.com/?to=/:account/workers"
+          class="text-tertiary hover:underline inline-flex items-center gap-1"
+          target="_blank"
+          rel="noopener noreferrer">Cloudflare dashboard
+          <span class="material-symbols-outlined text-sm align-middle">open_in_new</span></a
+        >.
+      </p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-12 px-8 border-t border-surface-container-low bg-surface-bright">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <p class="font-body text-sm text-on-surface-variant">
+        Cloud Tasks — open source on
+        <a
+          href="https://github.com/onurkerem/cloud-tasks"
+          class="text-tertiary hover:underline inline-flex items-center gap-1"
+          target="_blank"
+          rel="noopener noreferrer">GitHub
+          <span class="material-symbols-outlined text-sm align-middle">open_in_new</span></a
+        >.
+      </p>
+      <p class="font-body text-sm text-on-surface-variant/70">
+        Runs on Cloudflare Workers + D1.
+      </p>
+    </div>
+  </footer>
+</Layout>
+
+<script is:inline define:vars={{ installPrompt }}>
+  const btn = document.getElementById("hero-copy-btn");
+  if (btn) {
+    btn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(installPrompt);
+      } catch {
+        const ta = document.createElement("textarea");
+        ta.value = installPrompt;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      const icon = btn.querySelector(".copy-icon");
+      const label = btn.querySelector(".copy-label");
+      if (icon) icon.textContent = "check";
+      if (label) label.textContent = "Copied";
+      setTimeout(() => {
+        if (icon) icon.textContent = "content_copy";
+        if (label) label.textContent = "Copy prompt";
+      }, 2000);
+    });
+  }
+</script>

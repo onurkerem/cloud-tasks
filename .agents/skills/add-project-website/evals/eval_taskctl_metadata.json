@@ -1,0 +1,87 @@
+{
+  "eval_id": 3,
+  "eval_name": "taskctl-go-monorepo",
+  "prompt": "My Go project is already structured as a monorepo with packages/api/ (a REST API server) and packages/cli/ (the CLI client for the API). The CLI tool is called 'taskctl' - it manages tasks via the API. Flags: --server, --token, list/add/complete/delete subcommands. Config at ~/.taskctl.json. I need a website that explains the CLI tool and shows how to set up the API server.",
+  "assertions": [
+    {
+      "name": "preserves-existing-packages",
+      "type": "file_exists",
+      "description": "Output does NOT create a new packages/cli/ — it preserves the existing packages/api/ and packages/cli/ structure and only adds packages/website/"
+    },
+    {
+      "name": "has-astro-config",
+      "type": "file_exists",
+      "description": "packages/website/astro.config.ts exists"
+    },
+    {
+      "name": "has-global-css-theme",
+      "type": "content_contains",
+      "description": "global.css uses Tailwind v4 @theme directive",
+      "file": "packages/website/src/styles/global.css",
+      "contains": ["@theme", "--color-surface"]
+    },
+    {
+      "name": "has-hero-section",
+      "type": "content_contains",
+      "description": "Hero shows 'taskctl' name and installation command",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["taskctl"]
+    },
+    {
+      "name": "has-features-section",
+      "type": "content_contains",
+      "description": "Features cover task management (list/add/complete/delete)",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["list", "add", "complete", "delete"]
+    },
+    {
+      "name": "mentions-api-server",
+      "type": "content_contains",
+      "description": "Website mentions the API server setup alongside the CLI",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["API", "server"]
+    },
+    {
+      "name": "has-usage-examples",
+      "type": "content_contains",
+      "description": "Usage section shows subcommand examples",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["taskctl"]
+    },
+    {
+      "name": "has-config-section",
+      "type": "content_contains",
+      "description": "Has config section showing ~/.taskctl.json format",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["taskctl.json"]
+    },
+    {
+      "name": "has-go-install-command",
+      "type": "content_contains",
+      "description": "Shows go install as the installation method",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["go install"]
+    },
+    {
+      "name": "has-overhang-pattern",
+      "type": "content_contains",
+      "description": "Hero terminal uses negative margin overhang pattern",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["-mb-", "z-20"]
+    },
+    {
+      "name": "has-terminal-component",
+      "type": "content_contains",
+      "description": "Has dark terminal component with bg-inverse-surface",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["bg-inverse-surface"]
+    },
+    {
+      "name": "agents-md-mentions-all-three-packages",
+      "type": "content_contains",
+      "description": "Root AGENTS.md mentions all three packages: api, cli, and website",
+      "file": "AGENTS.md",
+      "contains": ["website"]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "skill_name": "add-project-website",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I have a Rust CLI tool called 'env-vault' that encrypts .env files and manages secrets. It's in a GitHub repo at github.com/user/env-vault. The main binary is in src/main.rs, it has subcommands: 'encrypt', 'decrypt', 'rotate', and 'status'. It uses a config file at ~/.env-vault/config.toml. It can integrate with AWS KMS and GCP KMS for key management. I want to add a marketing website to this project. Can you set it up?",
+      "expected_output": "A monorepo with packages/cli/ (Rust tool moved here) and packages/website/ (Astro site). Website should have: hero with cargo install command, features section covering encryption/decryption/key rotation/status, usage section with subcommand examples, mapping section showing .env → encrypted vault flow, and setup section showing config.toml. All docs (AGENTS.md, README.md, CLAUDE.md) updated.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Hey I built a Python CLI called db-snap - it takes PostgreSQL and MySQL database snapshots and can restore them. Uses a YAML config at ~/.db-snap/config.yml. Main flags are --database, --output, --restore, and --compress. The project is just a flat directory with main.py, snapshot.py, restore.py, config.py, and requirements.txt. I want a simple landing page for it.",
+      "expected_output": "A monorepo with packages/cli/ (Python files moved here) and packages/website/ (Astro site). Website should have: hero with pip install command, features section covering snapshot/restore/compression/multi-db support, usage section with CLI examples, and config section showing YAML format. Simpler than env-vault since no mapping section needed. All docs updated.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "My Go project is already structured as a monorepo with packages/api/ (a REST API server) and packages/cli/ (the CLI client for the API). The CLI tool is called 'taskctl' - it manages tasks via the API. Flags: --server, --token, list/add/complete/delete subcommands. Config at ~/.taskctl.json. I need a website that explains the CLI tool and shows how to set up the API server.",
+      "expected_output": "Adds packages/website/ without disrupting existing packages/api/ or packages/cli/. Website should have: hero with go install command, features section for task management subcommands, usage section with CLI examples, setup section showing the config.json format and API server setup instructions. Root AGENTS.md updated to include the website package alongside the existing two packages.",
+      "files": []
+    }
+  ]
+}

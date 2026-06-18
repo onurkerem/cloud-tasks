@@ -1,0 +1,85 @@
+{
+  "eval_id": 2,
+  "eval_name": "db-snap-python",
+  "prompt": "Hey I built a Python CLI called db-snap - it takes PostgreSQL and MySQL database snapshots and can restore them. Uses a YAML config at ~/.db-snap/config.yml. Main flags are --database, --output, --restore, and --compress. The project is just a flat directory with main.py, snapshot.py, restore.py, config.py, and requirements.txt. I want a simple landing page for it.",
+  "assertions": [
+    {
+      "name": "has-monorepo-structure",
+      "type": "file_exists",
+      "description": "Output includes packages/ directory with cli and website subdirectories"
+    },
+    {
+      "name": "has-astro-config",
+      "type": "file_exists",
+      "description": "packages/website/astro.config.ts exists"
+    },
+    {
+      "name": "has-global-css-theme",
+      "type": "content_contains",
+      "description": "global.css uses Tailwind v4 @theme directive with color tokens",
+      "file": "packages/website/src/styles/global.css",
+      "contains": ["@theme", "--color-surface", "--color-tertiary"]
+    },
+    {
+      "name": "has-hero-section",
+      "type": "content_contains",
+      "description": "index.astro has a hero section with the tool name 'db-snap'",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["db-snap"]
+    },
+    {
+      "name": "has-features-section",
+      "type": "content_contains",
+      "description": "Features section covers snapshot/restore capabilities",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["snapshot", "restore"]
+    },
+    {
+      "name": "mentions-postgres-mysql",
+      "type": "content_contains",
+      "description": "Website mentions PostgreSQL and MySQL support",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["PostgreSQL", "MySQL"]
+    },
+    {
+      "name": "has-usage-examples",
+      "type": "content_contains",
+      "description": "Usage section shows CLI examples with flags like --database, --output, --restore, --compress",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["--database", "--output"]
+    },
+    {
+      "name": "has-config-section",
+      "type": "content_contains",
+      "description": "Has a config section showing YAML config format",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["config.yml"]
+    },
+    {
+      "name": "has-overhang-pattern",
+      "type": "content_contains",
+      "description": "Hero terminal uses negative margin overhang pattern",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["-mb-", "z-20"]
+    },
+    {
+      "name": "has-install-command",
+      "type": "content_contains",
+      "description": "Shows pip install or similar Python installation method",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["pip"]
+    },
+    {
+      "name": "has-terminal-component",
+      "type": "content_contains",
+      "description": "Has dark terminal component with bg-inverse-surface styling",
+      "file": "packages/website/src/pages/index.astro",
+      "contains": ["bg-inverse-surface"]
+    },
+    {
+      "name": "has-updated-agents-md",
+      "type": "file_exists",
+      "description": "Root AGENTS.md mentions the website package"
+    }
+  ]
+}

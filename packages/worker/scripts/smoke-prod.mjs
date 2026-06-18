@@ -54,6 +54,11 @@ async function mcp(message) {
 
 try {
   await request("/health", { headers: { authorization: "" } });
+  const apiIndex = await request("/api");
+  if (!apiIndex.body.endpoints?.includes("/api/tasks")) {
+    throw new Error("API index did not advertise /api/tasks.");
+  }
+
   await request("/api/tasks", {
     method: "POST",
     body: JSON.stringify({

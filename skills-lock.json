@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "add-project-website": {
+      "source": "onurkerem/skills",
+      "sourceType": "github",
+      "skillPath": "skills/add-project-website/SKILL.md",
+      "computedHash": "6226fb03ba734ec5f93307ef80cbf48d3d231b738dad57802ac212f3716f48c9"
+    },
+    "devops": {
+      "source": "onurkerem/skills",
+      "sourceType": "github",
+      "skillPath": "skills/devops/SKILL.md",
+      "computedHash": "af0bbbb796ca7c400b7e8e376cd971811233f5705911ce81eca9e27d6df3bf2d"
+    }
+  }
+}

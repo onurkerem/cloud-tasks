@@ -71,6 +71,13 @@ afterAll(async () => {
 });
 
 describe("REST task API", () => {
+  it("serves an API index", async () => {
+    const response = await SELF.fetch("https://example.com/api");
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { endpoints: string[] };
+    expect(body.endpoints).toEqual(expect.arrayContaining(["/api/tasks", "/mcp"]));
+  });
+
   it("requires an API key", async () => {
     const response = await SELF.fetch("https://example.com/api/tasks");
     expect(response.status).toBe(401);
