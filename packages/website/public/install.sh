@@ -131,15 +131,22 @@ else:
 
 try:
     with open(f) as fh:
-        data = json.load(fh)
+        raw = fh.read()
 except FileNotFoundError:
-    data = {}
+    raw = ""
+# Strip BOM and null bytes before checking; treat files that only contain
+# those characters as empty so we can start from a clean {}.
+import re as _re
+_meaningful = _re.sub(r'[\x00﻿]', '', raw)
+try:
+    data = json.loads(_meaningful) if _meaningful.strip() else {}
 except json.JSONDecodeError as e:
     sys.stderr.write("%s is not valid JSON: %s\n" % (f, e))
     sys.exit(2)
 if not isinstance(data, dict):
-    sys.stderr.write("%s: top-level JSON is not an object\n" % f)
-    sys.exit(2)
+    # Top-level is valid JSON but not an object (e.g. null, array) — start fresh.
+    sys.stderr.write("%s: top-level JSON value is not an object; resetting to {}\n" % f)
+    data = {}
 
 cur = data
 for k in path[:-1]:
