@@ -1,0 +1,430 @@
+openapi: 3.1.0
+info:
+  title: Cloud Tasks API
+  description: >
+    REST API for Cloud Tasks, a task backend for coding agents built on Cloudflare Workers and D1.
+    Provides CRUD operations over tasks plus an atomic claim endpoint for agent work queues.
+  version: "1.0.0"
+  license:
+    name: MIT
+servers:
+  - url: https://{host}
+    description: Self-hosted or production deployment
+    variables:
+      host:
+        default: localhost:8787
+
+tags:
+  - name: Meta
+    description: Service metadata and health checks
+  - name: Tasks
+    description: Task CRUD and claiming
+
+security:
+  - apiKeyHeader: []
+  - apiKeyBearer: []
+
+paths:
+  /health:
+    get:
+      tags: [Meta]
+      summary: Health check
+      operationId: healthCheck
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  service:
+                    type: string
+                    example: cloud-tasks
+                required: [ok, service]
+
+  /api:
+    get:
+      tags: [Meta]
+      summary: API index
+      description: Lists available endpoints on this service.
+      operationId: getApiIndex
+      security: []
+      responses:
+        "200":
+          description: List of endpoints
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                    example: cloud-tasks
+                  endpoints:
+                    type: array
+                    items:
+                      type: string
+                    example:
+                      - /health
+                      - /api
+                      - /api/tasks
+                      - /api/tasks/:id
+                      - /api/tasks/claim
+                      - /mcp
+                required: [service, endpoints]
+
+  /api/tasks:
+    get:
+      tags: [Tasks]
+      summary: List tasks
+      description: Returns tasks matching the given filters, ordered by creation time ascending.
+      operationId: listTasks
+      parameters:
+        - name: id
+          in: query
+          description: Exact task id to filter by.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+        - name: status
+          in: query
+          description: Filter by task status.
+          schema:
+            $ref: "#/components/schemas/TaskStatus"
+        - name: assignee
+          in: query
+          description: Filter by exact assignee.
+          schema:
+            type: string
+            maxLength: 128
+        - name: q
+          in: query
+          description: Case-sensitive substring search over task description.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 500
+        - name: tag
+          in: query
+          description: Filter by tag. Repeatable, e.g. `?tag=backend&tag=urgent`.
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: tags
+          in: query
+          description: Filter by tags, comma-separated (combined with `tag`, ANDed together).
+          schema:
+            type: string
+          example: backend,urgent
+        - name: limit
+          in: query
+          description: Maximum number of tasks to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          description: Number of tasks to skip.
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Matching tasks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tasks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Task"
+                required: [tasks]
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Tasks]
+      summary: Create a task
+      operationId: createTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskInput"
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task:
+                    $ref: "#/components/schemas/Task"
+                required: [task]
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: A task with the given id already exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/tasks/claim:
+    post:
+      tags: [Tasks]
+      summary: Claim the next available task
+      description: >
+        Atomically claims the oldest `todo` task (optionally matching all given tags), sets its
+        status to `in_progress`, and assigns it. Returns `task: null` if no matching task is
+        available.
+      operationId: claimTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimTaskInput"
+      responses:
+        "200":
+          description: Claim result (task may be null if none available)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task:
+                    oneOf:
+                      - $ref: "#/components/schemas/Task"
+                      - type: "null"
+                required: [task]
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/tasks/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Task id.
+        schema:
+          type: string
+    get:
+      tags: [Tasks]
+      summary: Get a task
+      operationId: getTask
+      responses:
+        "200":
+          description: The task
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task:
+                    $ref: "#/components/schemas/Task"
+                required: [task]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Tasks]
+      summary: Update a task
+      description: Partially updates a task. At least one field must be provided.
+      operationId: updateTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaskInput"
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task:
+                    $ref: "#/components/schemas/Task"
+                required: [task]
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Tasks]
+      summary: Delete a task
+      operationId: deleteTask
+      responses:
+        "204":
+          description: Task deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    apiKeyHeader:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: The Worker's `API_KEY` secret, passed directly.
+    apiKeyBearer:
+      type: http
+      scheme: bearer
+      description: "The Worker's `API_KEY` secret, passed as `Authorization: Bearer <API_KEY>`."
+
+  schemas:
+    TaskStatus:
+      type: string
+      enum: [todo, in_progress, done]
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        assignee:
+          type: string
+        status:
+          $ref: "#/components/schemas/TaskStatus"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, description, tags, assignee, status, createdAt, updatedAt]
+
+    CreateTaskInput:
+      type: object
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Optional custom id. A UUID is generated if omitted.
+        description:
+          type: string
+          minLength: 1
+          maxLength: 50000
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
+          maxItems: 25
+          default: []
+          description: Lower-cased on write.
+        assignee:
+          type: string
+          maxLength: 128
+          default: ""
+        status:
+          allOf:
+            - $ref: "#/components/schemas/TaskStatus"
+          default: todo
+      required: [description]
+
+    UpdateTaskInput:
+      type: object
+      description: At least one field must be provided.
+      properties:
+        description:
+          type: string
+          minLength: 1
+          maxLength: 50000
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
+          maxItems: 25
+        assignee:
+          type: string
+          maxLength: 128
+        status:
+          $ref: "#/components/schemas/TaskStatus"
+      minProperties: 1
+
+    ClaimTaskInput:
+      type: object
+      properties:
+        assignee:
+          type: string
+          minLength: 1
+          maxLength: 128
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
+          maxItems: 25
+          default: []
+          description: If given, only tasks with all of these tags are eligible.
+      required: [assignee]
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          description: Present for validation errors (Zod flatten output) or other structured error details.
+      required: [error]
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Task not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ValidationError:
+      description: Request failed validation
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"

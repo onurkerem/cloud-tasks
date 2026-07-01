@@ -36,6 +36,11 @@ Run every command from inside the relevant package directory.
   reflected in `packages/website/src/pages/index.astro` — the site is the source of truth users see.
 - The hero of the website shows a copyable **agent-install prompt**. If the deploy steps, repo URL,
   or secret/migration commands change, update that prompt in `index.astro` too.
+- **Keep all documentation and spec files aligned after every change.** Any change to REST routes,
+  request/response shapes, auth, or MCP tools must be reflected together in: `packages/worker/openapi.yaml`
+  (REST API spec), `packages/website/src/pages/index.astro` (docs site), and this file if repo
+  layout or behavior it describes changes. Treat these as one unit — do not land a route or schema
+  change without updating the others in the same pass.
 - Before considering work done: run `npm test` and `npm run typecheck` in `packages/worker`, and
   `npm run build` in `packages/website`.
 - Root `CLAUDE.md` must remain a short pointer back to this file so Claude Code and Codex follow
