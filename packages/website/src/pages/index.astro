@@ -1,7 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 
-const workerUrl = "https://cloud-tasks.keremorenli.com";
+const workerUrl = "https://tasks.keremorenli.com";
 
 const installPrompt = `Install and deploy the open-source "Cloud Tasks" project into my own Cloudflare account, then tell me how to connect this agent to it. Do every step for me and pause only when you need my input (for example, to approve a login).
 
@@ -9,27 +9,30 @@ const installPrompt = `Install and deploy the open-source "Cloud Tasks" project 
    git clone https://github.com/onurkerem/cloud-tasks.git
    The Worker source lives in packages/worker/ — run every command from there.
 
-2. Reset the D1 binding so a fresh database is created in MY account. In packages/worker/wrangler.jsonc, set d1_databases[0].database_id to "00000000-0000-0000-0000-000000000000".
+2. Run: npm install
 
-3. Run: npm install
-
-4. Authenticate Wrangler. Run: npx wrangler login
+3. Authenticate Wrangler. Run: npx wrangler login
    Tell me to complete the browser approval. If I can't use a browser, ask me for a CLOUDFLARE_API_TOKEN instead.
 
-5. Create the D1 database and write its id back into wrangler.jsonc:
+4. Create the D1 database and write its id into wrangler.jsonc:
    npm run deploy:prepare
 
-6. Apply the schema to the remote database:
+5. Apply the schema to the remote database:
    npm run db:migrate:remote
 
-7. Generate a strong API key (32 random hex bytes) and store it as a Worker secret:
+6. Generate a strong API key (32 random hex bytes) and store it as a Worker secret for REST API use:
    npx wrangler secret put API_KEY
    Enter the generated value and remember it.
+
+7. Configure Cloudflare Access for the MCP endpoint. Create a Self-hosted Access application for <worker-url>/mcp, then store:
+   npx wrangler secret put CF_ACCESS_TEAM_DOMAIN
+   npx wrangler secret put CF_ACCESS_POLICY_AUD
+   If I do not have the Access application yet, pause and tell me the exact dashboard steps.
 
 8. Deploy the Worker:
    npm run deploy
 
-9. Capture the deployed URL (https://cloud-tasks.<my-subdomain>.workers.dev, or your custom domain if you added one) and run the production smoke test:
+9. Capture the deployed URL (https://cloud-tasks.<my-subdomain>.workers.dev, or your custom domain if you added one) and run the REST production smoke test:
    WORKER_URL=<that url> API_KEY=<the key> npm run smoke:prod
    If anything fails, read the error, fix it, and retry.
 
@@ -37,7 +40,7 @@ const installPrompt = `Install and deploy the open-source "Cloud Tasks" project 
     - the Worker URL,
     - the API_KEY value,
     - the REST API index (<url>/api),
-    - the MCP endpoint (<url>/mcp), called with the header: Authorization: Bearer <API_KEY>.`;
+    - the MCP endpoint (<url>/mcp), protected by Cloudflare Access.`;
 
 const wranglerSnippet = `{
   "name": "cloud-tasks",
@@ -54,18 +57,20 @@ const wranglerSnippet = `{
   ]
 }`;
 
-const devVarsSnippet = `API_KEY=replace-with-a-long-random-secret`;
+const devVarsSnippet = `API_KEY=replace-with-a-long-random-secret
+CF_ACCESS_TEAM_DOMAIN=https://your-team.cloudflareaccess.com
+CF_ACCESS_POLICY_AUD=your-access-aud-tag`;
 
 const manualCommands = `npx wrangler login
 npm run deploy:prepare
 npm run db:migrate:remote
 npx wrangler secret put API_KEY
+npx wrangler secret put CF_ACCESS_TEAM_DOMAIN
+npx wrangler secret put CF_ACCESS_POLICY_AUD
 npm run deploy`;
 
 const createTaskBody = '{"description":"Ship the API","tags":["backend"]}';
 const claimTaskBody = '{"assignee":"agent-b","tags":["backend"]}';
-const mcpListBody = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}';
-
 const mcpTools = [
   "create_task",
   "list_tasks",
@@ -85,7 +90,7 @@ const connectAgents = [
 ];
 
 const installerFeatures = [
-  "Asks for your /mcp URL and API key (input hidden, never printed)",
+  "For legacy API-key MCP deployments only; hosted MCP uses Cloudflare Access",
   "Pick any of: opencode, Claude Code, Codex, Antigravity",
   "Merges only the cloud-tasks entry — your other config stays untouched",
   "Backs up each file first; sets 600 perms on any file holding your key",
@@ -214,10 +219,10 @@ const installerFeatures = [
             >Secure by default, free to run</h3
           >
           <p class="font-body text-on-surface-variant leading-relaxed">
-            Every request is gated by an API key (<code class="font-mono text-sm"
+            REST requests are gated by an API key (<code class="font-mono text-sm"
               >Authorization: Bearer</code
-            > or <code class="font-mono text-sm">x-api-key</code>). Runs entirely on Cloudflare's
-            free-tier Workers + D1.
+            > or <code class="font-mono text-sm">x-api-key</code>); the production MCP endpoint is
+            protected by Cloudflare Access. Runs entirely on Cloudflare's free-tier Workers + D1.
           </p>
         </div>
       </div>
@@ -265,7 +270,7 @@ const installerFeatures = [
           </div>
           <h4 class="font-headline font-bold text-on-surface">Cloud Tasks Worker</h4>
           <p class="font-body text-sm text-on-surface-variant mt-1">
-            <code class="font-mono">POST /mcp</code> · Bearer API key
+            <code class="font-mono">POST /mcp</code> · Cloudflare Access
           </p>
         </div>
         <div class="hidden md:flex flex-col items-center justify-center text-outline-variant">
@@ -313,7 +318,8 @@ const installerFeatures = [
         >
         <p class="font-body text-lg text-on-surface-variant mb-8 leading-relaxed">
           Talk to Cloud Tasks however you like — raw REST for scripts and dashboards, or the MCP
-          endpoint for agents. Both share one API key and one task store.
+          endpoint for agents. REST uses your API key; the hosted MCP endpoint uses Cloudflare
+          Access and Managed OAuth.
         </p>
         <div class="space-y-4">
           <div class="flex items-start gap-3">
@@ -391,13 +397,12 @@ const installerFeatures = [
           </div>
           <div class="font-mono text-sm space-y-4">
             <div>
-              <span class="text-on-surface-variant opacity-70"># List tools over the MCP endpoint</span
+              <span class="text-on-surface-variant opacity-70"
+                ># Production MCP uses Cloudflare Access OAuth</span
               ><br />
-              <span class="text-[#8b9cf7]">curl</span>
-              <span class="text-on-surface-variant/70">-X POST</span>
-              <span class="text-inverse-on-surface">{workerUrl}/mcp</span><br />
-              <span class="text-on-surface-variant/70">  -d</span>
-              <span class="text-inverse-on-surface">'{mcpListBody}'</span>
+              <span class="text-on-surface-variant/70"># Connect OAuth-capable MCP clients to</span
+              ><br />
+              <span class="text-inverse-on-surface">{workerUrl}/mcp</span>
             </div>
           </div>
         </div>
@@ -417,8 +422,8 @@ const installerFeatures = [
           >Connect your agent in one line</h2
         >
         <p class="font-body text-lg text-on-surface-variant mb-8 leading-relaxed">
-          The installer asks for your MCP URL and API key, lets you pick agents, and safely wires
-          Cloud Tasks into each one — backing up every file before it touches a thing.
+          Hosted MCP uses Cloudflare Access. The legacy installer remains for older API-key MCP
+          deployments and backs up every file before it touches a thing.
         </p>
         <ul class="space-y-3 mb-8">
           {
@@ -494,7 +499,8 @@ const installerFeatures = [
         >Prefer the manual path?</h2
       >
       <p class="font-body text-lg text-on-surface-variant mb-12">
-        Clone the repo, set a placeholder D1 id, and run the deploy script. Everything lives in
+        Clone the repo and run the deploy script — <code class="font-mono text-sm">wrangler.jsonc</code> already
+        ships with a placeholder D1 id. Everything lives in
         <code class="font-mono text-sm">packages/worker/</code>.
       </p>
 

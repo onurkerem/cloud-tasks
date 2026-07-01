@@ -41,17 +41,22 @@ Run every command from inside the relevant package directory.
 
 ## Production expectations
 
-- The Astro website is published at `https://cloud-tasks.keremorenli.com`.
-- Production API requests (API key auth) are served under `https://cloud-tasks.keremorenli.com/api`.
-- The production MCP endpoint for coding agents (API key auth) is at `https://cloud-tasks.keremorenli.com/mcp`.
-- `https://tasks.keremorenli.com` is the same Worker but protected by Cloudflare Access / Managed
-  OAuth — used by ChatGPT and other OAuth MCP clients.
-- Both custom domains are declared in `wrangler.jsonc` under `custom_domains`; the single deploy
-  command serves both.
-- Keep the public self-host path generic: do not require visitors to deploy Kerem's custom domain.
+- The maintainer runs a real deployment on two custom domains: a website-only host (serves the
+  Astro site; `/api` and `/mcp` must not respond there) and an API host (serves `/api` with API-key
+  auth, and `/mcp` with Cloudflare Access JWT auth only).
+- The maintainer's actual domains and D1 `database_id` live in
+  `packages/worker/wrangler.maintainer.jsonc` — a git-tracked, maintainer-only config file (see its
+  header comment). Agents helping the maintainer with production work should read that file
+  directly rather than asking; self-hosters should ignore it entirely.
+- `npm run deploy:prod` (maintainer-only) deploys against `wrangler.maintainer.jsonc` via
+  `wrangler -c`, so a single command serves both custom domains.
+- Keep the public self-host path generic: `packages/worker/wrangler.jsonc` (the template
+  self-hosters actually use) must never reference the maintainer's custom domains or database_id.
 
 ## Notes
 
-- `packages/worker/wrangler.jsonc` may contain a real D1 `database_id` for the maintainer's account.
-  The website's install prompt resets it to the placeholder `00000000-…` so fresh installs create a
-  new D1 in the visitor's own account via `npm run deploy:prepare`.
+- `packages/worker/wrangler.jsonc` (the generic template) always keeps a placeholder D1
+  `database_id` (`00000000-…`) and no `custom_domains`. Self-hosters run `npm run deploy:prepare` to
+  create a new D1 in their own account, and add their own `custom_domains` if they want one.
+- `packages/worker/wrangler.maintainer.jsonc` holds the maintainer's real production values. Never
+  copy its `database_id` or `custom_domains` into the generic `wrangler.jsonc` template.

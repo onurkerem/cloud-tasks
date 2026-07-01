@@ -1,90 +1,48 @@
 # Cloud Tasks
 
-Lightweight Cloudflare Workers backend with D1 persistence, API-key protected REST CRUD, and a remote MCP endpoint for agents.
+A task backend for coding agents. Give your AI coding tools a shared, persistent to-do list they can read, write, and pick work from — backed by a tiny Cloudflare Worker and a D1 database.
 
-## Product Choice
+## What it is
 
-This project uses the Cloudflare free-plan friendly stack:
+Cloud Tasks is a small service that stores tasks (description, tags, assignee, status) and exposes them two ways:
 
-- Workers for the REST API and MCP endpoint.
-- D1 for persistent, filterable task records.
-- Worker Secrets for `API_KEY`.
+- A **REST API** for scripts, dashboards, and direct human use.
+- An **MCP endpoint** for coding agents — so Claude Code, Codex, opencode, and friends can create, list, update, and claim tasks as they work.
 
-Durable Objects are intentionally not used because the MCP tools are stateless. Add them later only if you need stateful MCP sessions or strong coordination beyond the current D1 update queries.
+It runs entirely on Cloudflare's free tier (Workers + D1) and is built to be self-hosted in your own account. Your task data never leaves your Cloudflare account.
 
-## Local Setup
+## Why
 
-```sh
-npm install
-cp .dev.vars.example .dev.vars
-npm run db:migrate:local
-npm run dev
+Coding agents are more useful when they can plan in a shared, durable place instead of holding everything in context. Cloud Tasks gives every agent — and you — one lightweight source of truth for what needs doing, who's doing it, and what's done. No database to run, no SaaS to sign up for.
+
+## How it's used
+
+Two audiences, two doors:
+
+- **Coding agents** connect to the `/mcp` endpoint and get tools to create, list, get, update, and delete tasks, plus `claim_next_task`, which atomically assigns the oldest open task to the agent that calls it.
+- **Humans and scripts** talk to `/api` with an API key to seed tasks, watch progress, build dashboards, or move items by hand.
+
+The two doors are intentionally separate: agent access is gated by Cloudflare Access (an identity, not a shared secret), while the REST API uses an API key for automation. An agent never needs your API key, and a script never needs your identity.
+
+## Get it running
+
+Cloud Tasks is self-hosted in your own Cloudflare account. The easiest path is to hand the install to a coding agent:
+
+1. Open the website: **https://cloud-tasks.keremorenli.com**
+2. Copy the install prompt from the hero.
+3. Paste it into your agent. It will clone the repo, create the D1 database, set your API key and Cloudflare Access, deploy, and hand back your URLs.
+
+Prefer to run it yourself? Wrangler commands, migrations, and secrets are all in [`AGENTS.md`](./AGENTS.md).
+
+## Repository
+
+```
+cloud-tasks/
+├── packages/
+│   ├── worker/      # Cloudflare Workers backend (REST + MCP, D1)
+│   └── website/     # Astro marketing website
+├── AGENTS.md        # Technical stack, commands, and deploy details
+└── README.md
 ```
 
-Use `Authorization: Bearer <API_KEY>` or `x-api-key: <API_KEY>`.
-
-## REST API
-
-- `GET /api`
-- `GET /api/tasks?status=todo&assignee=agent-a&tag=backend&q=text&limit=50&offset=0`
-- `POST /api/tasks`
-- `GET /api/tasks/:id`
-- `PATCH /api/tasks/:id`
-- `DELETE /api/tasks/:id`
-- `POST /api/tasks/claim`
-
-Task body:
-
-```json
-{
-  "description": "Do the thing",
-  "tags": ["backend"],
-  "assignee": "agent-a",
-  "status": "todo"
-}
-```
-
-## MCP Endpoint
-
-`/mcp` exposes these tools:
-
-- `create_task`
-- `list_tasks`
-- `get_task`
-- `update_task`
-- `delete_task`
-- `claim_next_task`
-
-The MCP endpoint uses the same API key header as REST.
-
-## Deploy
-
-Generic self-hosted Worker deploy:
-
-```sh
-npx wrangler login
-npm run deploy:prepare
-npm run db:migrate:remote
-npx wrangler secret put API_KEY
-npm run deploy
-```
-
-Production smoke test:
-
-```sh
-WORKER_URL=https://cloud-tasks.<your-subdomain>.workers.dev API_KEY=<secret> npm run smoke:prod
-```
-
-Maintainer production:
-
-```sh
-npm run deploy:prod
-WORKER_URL=https://tasks.keremorenli.com API_KEY=<secret> npm run smoke:prod
-```
-
-`deploy:prod` builds `packages/website`, deploys the Astro output as Worker static assets, and
-attaches the Worker custom domain.
-
-- Website: `https://tasks.keremorenli.com`
-- API: `https://tasks.keremorenli.com/api`
-- MCP: `https://tasks.keremorenli.com/mcp`
+For the technical stack, build/test commands, API specs, and deployment procedures, see [`AGENTS.md`](./AGENTS.md).

@@ -1,7 +1,7 @@
 import { createMcpHandler } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { assertAuthorized } from "./auth";
+import { assertMcpAuthorized } from "./auth";
 import { errorResponse } from "./http";
 import {
   claimTaskSchema,
@@ -147,7 +147,7 @@ export async function handleMcp(
   ctx: ExecutionContext,
 ): Promise<Response> {
   try {
-    await assertAuthorized(request, env);
+    await assertMcpAuthorized(request, env);
     return createMcpHandler(createServer(env))(request, env, ctx);
   } catch (error) {
     return errorResponse(error);

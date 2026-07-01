@@ -1,0 +1,34 @@
+// Maintainer-only deployment config for keremorenli's own Cloudflare account.
+//
+// This file is intentionally committed to git so agents helping the maintainer can read and
+// use it directly. It is NOT the template self-hosters should deploy with.
+//
+// If you are self-hosting Cloud Tasks: ignore this file entirely. Use `wrangler.jsonc` (the
+// generic template) with `npm run deploy` / `npm run deploy:prepare` instead — those create a
+// fresh D1 database and, optionally, your own custom domains in YOUR OWN account.
+//
+// Used only by `npm run deploy:prod` via `wrangler -c wrangler.maintainer.jsonc`.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cloud-tasks",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-18",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "observability": {
+    "enabled": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cloud-tasks",
+      "database_id": "8fd50548-25dd-4e06-b5f9-0bf74ef956a2",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "routes": [
+    { "pattern": "cloud-tasks.keremorenli.com", "custom_domain": true },
+    { "pattern": "tasks.keremorenli.com", "custom_domain": true }
+  ]
+}

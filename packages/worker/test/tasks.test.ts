@@ -1,8 +1,10 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { env, SELF } from "cloudflare:test";
 import type { Env as AppEnv } from "../src/types";
 
 const API_KEY = "test-secret";
+const ACCESS_TEAM_DOMAIN = "https://team.cloudflareaccess.com";
+const ACCESS_AUD = "test-access-aud";
 const testEnv = env as unknown as AppEnv;
 const headers = {
   authorization: `Bearer ${API_KEY}`,
@@ -16,12 +18,65 @@ async function api(path: string, init: RequestInit = {}) {
   });
 }
 
+function base64Url(input: string | ArrayBuffer): string {
+  const bytes =
+    typeof input === "string" ? new TextEncoder().encode(input) : new Uint8Array(input);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+async function createAccessAssertion(): Promise<string> {
+  const keyPair = (await crypto.subtle.generateKey(
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    },
+    true,
+    ["sign", "verify"],
+  )) as CryptoKeyPair;
+  const publicJwk = await crypto.subtle.exportKey("jwk", keyPair.publicKey);
+  const jwk = { ...publicJwk, kid: "test-key", alg: "RS256" };
+
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => Response.json({ keys: [jwk] })),
+  );
+
+  testEnv.CF_ACCESS_TEAM_DOMAIN = ACCESS_TEAM_DOMAIN;
+  testEnv.CF_ACCESS_POLICY_AUD = ACCESS_AUD;
+
+  const header = base64Url(JSON.stringify({ alg: "RS256", kid: "test-key", typ: "JWT" }));
+  const payload = base64Url(
+    JSON.stringify({
+      iss: ACCESS_TEAM_DOMAIN,
+      aud: [ACCESS_AUD],
+      exp: Math.floor(Date.now() / 1000) + 300,
+      email: "agent@example.com",
+    }),
+  );
+  const signingInput = `${header}.${payload}`;
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    keyPair.privateKey,
+    new TextEncoder().encode(signingInput),
+  );
+
+  return `${signingInput}.${base64Url(signature)}`;
+}
+
 async function mcp(message: unknown) {
+  const assertion = await createAccessAssertion();
   const response = await api("/mcp", {
     method: "POST",
     headers: {
       accept: "application/json, text/event-stream",
       "content-type": "application/json",
+      "cf-access-jwt-assertion": assertion,
     },
     body: JSON.stringify(message),
   });
@@ -68,6 +123,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await testEnv.DB.prepare("DELETE FROM task_tags").run();
   await testEnv.DB.prepare("DELETE FROM tasks").run();
+  vi.unstubAllGlobals();
 });
 
 describe("REST task API", () => {
@@ -136,10 +192,37 @@ describe("REST task API", () => {
     });
     expect(response.status).toBe(400);
   });
+
+  it("serves the API on the tasks host with an API key", async () => {
+    const response = await SELF.fetch("https://tasks.keremorenli.com/api/tasks", {
+      headers,
+    });
+    expect(response.status).toBe(200);
+  });
+
+  it("blocks API and MCP routes on the website host", async () => {
+    for (const path of ["/api", "/api/tasks", "/mcp"]) {
+      const response = await SELF.fetch(`https://cloud-tasks.keremorenli.com${path}`, {
+        method: path === "/mcp" ? "POST" : "GET",
+        headers: {
+          ...headers,
+          accept: "application/json, text/event-stream",
+        },
+        body:
+          path === "/mcp"
+            ? JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} })
+            : undefined,
+      });
+      expect(response.status).toBe(404);
+      await expect(response.json()).resolves.toMatchObject({
+        error: "This host only serves the Cloud Tasks website.",
+      });
+    }
+  });
 });
 
 describe("MCP task tools", () => {
-  it("requires an API key", async () => {
+  it("requires credentials", async () => {
     const response = await SELF.fetch("https://example.com/mcp", {
       method: "POST",
       headers: {
@@ -149,6 +232,21 @@ describe("MCP task tools", () => {
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
     });
     expect(response.status).toBe(401);
+  });
+
+  it("rejects API key auth on MCP", async () => {
+    const response = await SELF.fetch("https://tasks.keremorenli.com/mcp", {
+      method: "POST",
+      headers: {
+        ...headers,
+        accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+    });
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Missing Cloudflare Access assertion.",
+    });
   });
 
   it("lists and calls task tools", async () => {

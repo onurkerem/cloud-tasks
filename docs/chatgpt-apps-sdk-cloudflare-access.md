@@ -82,46 +82,29 @@ Optional — restrict to a single email even after CF Access validates:
 wrangler secret put ALLOWED_EMAILS   # e.g. you@example.com
 ```
 
-### 3b. Set AUTH_MODE
+### 3b. Local development
 
-Add to `wrangler.jsonc` under `vars` (not a secret — safe to commit):
-
-```jsonc
-{
-  "vars": {
-    "AUTH_MODE": "hybrid"
-  }
-}
-```
-
-`hybrid` lets existing static-key clients keep working while also accepting Cloudflare Access JWTs.
-
-Use `cloudflare_access` to disable the API key path entirely in production.
-
-### 3c. Local development
-
-Keep your `.dev.vars` as-is:
+Keep your `.dev.vars` explicit about both auth paths:
 
 ```
 API_KEY=local-dev-secret
-# AUTH_MODE not set → defaults to "api_key"
+CF_ACCESS_TEAM_DOMAIN=https://myteam.cloudflareaccess.com
+CF_ACCESS_POLICY_AUD=<aud-tag-from-access-app>
 ```
 
-Local dev continues to use only the static API key; no Cloudflare Access config required.
+REST uses `API_KEY`. MCP validates `Cf-Access-Jwt-Assertion` and therefore needs the Access
+configuration even in local or preview environments.
 
 ---
 
-## 4. Auth mode reference
+## 4. Auth model reference
 
-| `AUTH_MODE` | Accepts static API key | Accepts CF Access JWT | Notes |
+| Route | Accepts static API key | Accepts CF Access JWT | Notes |
 |---|---|---|---|
-| `api_key` (default) | Yes | No | Backward-compatible default |
-| `cloudflare_access` | No | Yes | Fully locked to CF Access |
-| `hybrid` | Yes (fallback) | Yes (preferred) | Recommended for production |
+| `/api/*` | Yes | No | Direct REST/script/dashboard access |
+| `/mcp` | No | Yes | MCP clients must authenticate through Cloudflare Access |
 
-In `hybrid` mode the Worker checks for a `Cf-Access-Jwt-Assertion` header first. If the header is
-absent it falls back to the static API key. This means existing MCP clients using `Authorization:
-Bearer <API_KEY>` or `X-Api-Key: <API_KEY>` continue to work unchanged.
+The website-only host (e.g. `cloud-tasks.example.com`) intentionally blocks `/api` and `/mcp`.
 
 ---
 
@@ -138,18 +121,15 @@ Bearer <API_KEY>` or `X-Api-Key: <API_KEY>` continue to work unchanged.
 
 ## 6. Testing
 
-### Test static API key still works
+### Test REST static API key still works
 
 ```sh
-curl -s https://tasks.example.com/mcp \
+curl -s https://tasks.example.com/api/tasks \
   -H "Authorization: Bearer $API_KEY" \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
-  | grep "cloud-tasks"
+  | grep "tasks"
 ```
 
-Expected: 200 response with the tools list.
+Expected: 200 response with the task list.
 
 ### Test missing credentials are rejected
 
@@ -164,13 +144,14 @@ curl -s -o /dev/null -w "%{http_code}" https://tasks.example.com/mcp \
 
 | Scenario | HTTP status | Error message |
 |---|---|---|
-| No credentials provided | 401 | Unauthorized. |
-| Wrong API key | 401 | Unauthorized. |
+| No MCP credentials provided | 401 | Missing Cloudflare Access assertion. |
+| API key sent to MCP | 401 | Missing Cloudflare Access assertion. |
+| Wrong REST API key | 401 | Unauthorized. |
 | CF Access assertion with wrong audience | 401 | Cloudflare Access assertion audience mismatch. |
 | Expired CF Access assertion | 401 | Cloudflare Access assertion has expired. |
 | CF Access assertion with unknown signing key | 401 | No matching Cloudflare Access public key found. |
 | Email not in `ALLOWED_EMAILS` | 401 | Access denied: email not in allowlist. |
-| `CF_ACCESS_TEAM_DOMAIN` not configured in `cloudflare_access` mode | 500 | Cloudflare Access environment variables are not configured. |
+| `CF_ACCESS_TEAM_DOMAIN` not configured for MCP | 500 | Cloudflare Access environment variables are not configured. |
 
 ---
 

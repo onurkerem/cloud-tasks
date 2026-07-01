@@ -13,12 +13,8 @@
     {
       "binding": "DB",
       "database_name": "cloud-tasks",
-      "database_id": "8fd50548-25dd-4e06-b5f9-0bf74ef956a2",
+      "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "migrations"
     }
-  ],
-  "custom_domains": [
-    { "pattern": "cloud-tasks.keremorenli.com" },
-    { "pattern": "tasks.keremorenli.com" }
   ]
 }

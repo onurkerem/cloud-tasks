@@ -159,24 +159,10 @@ async function checkCloudflareAccess(request: Request, env: Env): Promise<void> 
 // Public entry point
 // ---------------------------------------------------------------------------
 
-export async function assertAuthorized(request: Request, env: Env): Promise<void> {
-  const mode = env.AUTH_MODE ?? "api_key";
-
-  if (mode === "api_key") {
-    checkApiKey(request, env);
-    return;
-  }
-
-  if (mode === "cloudflare_access") {
-    await checkCloudflareAccess(request, env);
-    return;
-  }
-
-  // hybrid: CF Access assertion takes priority; fall back to API key
-  const assertion = request.headers.get("cf-access-jwt-assertion");
-  if (assertion) {
-    await verifyCloudflareAccessJwt(assertion, env);
-    return;
-  }
+export function assertRestAuthorized(request: Request, env: Env): void {
   checkApiKey(request, env);
+}
+
+export async function assertMcpAuthorized(request: Request, env: Env): Promise<void> {
+  await checkCloudflareAccess(request, env);
 }

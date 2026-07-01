@@ -1,5 +1,6 @@
 const baseUrl = process.env.WORKER_URL;
 const apiKey = process.env.API_KEY;
+const cfAccessJwt = process.env.CF_ACCESS_JWT;
 
 if (!baseUrl || !apiKey) {
   console.error("Usage: WORKER_URL=https://<worker>.<account>.workers.dev API_KEY=<secret> npm run smoke:prod");
@@ -33,16 +34,25 @@ async function request(path, init = {}) {
 }
 
 async function mcp(message) {
-  const { body } = await request("/mcp", {
+  if (!cfAccessJwt) {
+    return undefined;
+  }
+
+  const headers = new Headers({
+    accept: "application/json, text/event-stream",
+    "content-type": "application/json",
+    "cf-access-jwt-assertion": cfAccessJwt,
+  });
+  const response = await fetch(`${root}/mcp`, {
     method: "POST",
-    headers: {
-      accept: "application/json, text/event-stream",
-      "content-type": "application/json",
-    },
+    headers,
     body: JSON.stringify(message),
   });
+  const eventText = await response.text();
+  if (!response.ok) {
+    throw new Error(`POST /mcp failed with ${response.status}: ${eventText}`);
+  }
 
-  const eventText = typeof body === "string" ? body : JSON.stringify(body);
   const dataLine = eventText
     .split("\n")
     .find((line) => line.startsWith("data: "));
@@ -84,10 +94,12 @@ try {
     method: "tools/list",
     params: {},
   });
-  const toolNames = tools.result?.tools?.map((tool) => tool.name) ?? [];
-  for (const expected of ["create_task", "list_tasks", "claim_next_task"]) {
-    if (!toolNames.includes(expected)) {
-      throw new Error(`MCP tools/list did not include ${expected}.`);
+  if (tools) {
+    const toolNames = tools.result?.tools?.map((tool) => tool.name) ?? [];
+    for (const expected of ["create_task", "list_tasks", "claim_next_task"]) {
+      if (!toolNames.includes(expected)) {
+        throw new Error(`MCP tools/list did not include ${expected}.`);
+      }
     }
   }
 
