@@ -9,7 +9,8 @@ store, a REST API, and an MCP endpoint that exposes the store as agent tools.
 cloud-tasks/
 ├── packages/
 │   ├── worker/      # Cloudflare Workers backend (REST + MCP, D1)
-│   └── website/     # Astro marketing website
+│   ├── website/     # Astro marketing website
+│   └── tui/         # Terminal dashboard for watching task status (REST client)
 ├── README.md
 ├── CLAUDE.md        # Claude Code pointer to these instructions
 └── AGENTS.md
@@ -24,6 +25,7 @@ shared workspace config. Coordinate between them through this file.
 | --- | --- | --- |
 | `packages/worker` | TypeScript, Cloudflare Workers, Wrangler, D1, agents/MCP SDK, Zod, Vitest | `npm run dev`, `npm test`, `npm run typecheck`, `npm run deploy:prod` |
 | `packages/website` | Astro 6, Tailwind 4, TypeScript | `npm run dev`, `npm run build`, `npm run preview`, `npm run check` |
+| `packages/tui` | TypeScript, Ink (React), tsx | `npm start`, `npm run dev`, `npm run typecheck` |
 
 Run every command from inside the relevant package directory.
 

@@ -34,13 +34,28 @@ Cloud Tasks is self-hosted in your own Cloudflare account. The easiest path is t
 
 Prefer to run it yourself? Wrangler commands, migrations, and secrets are all in [`AGENTS.md`](./AGENTS.md).
 
+## Watch tasks from a terminal
+
+`packages/tui` is a small terminal dashboard that polls `/api/tasks` and shows every task grouped by status, with optional auto-refresh — leave it open in a terminal while agents work.
+
+Point it at your production deployment with the same `WORKER_URL` and `API_KEY` you used to run the production smoke test (the API host — a custom domain or `https://cloud-tasks.<my-subdomain>.workers.dev` — not the website-only host):
+
+```
+cd packages/tui
+npm install
+WORKER_URL=<your api host url> API_KEY=<your API_KEY secret> npm start
+```
+
+See [`packages/tui/README.md`](./packages/tui/README.md) for flags (`--interval`, `--no-auto`) and keybindings.
+
 ## Repository
 
 ```
 cloud-tasks/
 ├── packages/
 │   ├── worker/      # Cloudflare Workers backend (REST + MCP, D1)
-│   └── website/     # Astro marketing website
+│   ├── website/     # Astro marketing website
+│   └── tui/         # Terminal dashboard for watching task status (REST client)
 ├── AGENTS.md        # Technical stack, commands, and deploy details
 └── README.md
 ```
