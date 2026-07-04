@@ -9,6 +9,10 @@ export interface Env {
   CF_ACCESS_POLICY_AUD?: string;
   /** Comma-separated allowlist of emails checked after CF Access validation */
   ALLOWED_EMAILS?: string;
+  /** Full URL (incl. path) of the n8n dispatcher webhook, reached via Cloudflare Tunnel */
+  N8N_WEBHOOK_URL?: string;
+  /** Shared secret sent as X-Webhook-Secret to the n8n dispatcher webhook */
+  N8N_WEBHOOK_SECRET?: string;
 }
 
 export interface Task {

@@ -9,3 +9,7 @@ API_KEY=replace-with-a-long-random-local-secret
 
 # Optional: comma-separated email allowlist applied after CF Access validation
 # ALLOWED_EMAILS=you@example.com
+
+# Optional: push a notification to an n8n dispatcher webhook whenever a todo task is created
+# N8N_WEBHOOK_URL=https://your-tunnel-hostname/webhook/dispatcher-manual
+# N8N_WEBHOOK_SECRET=replace-with-the-webhook-shared-secret

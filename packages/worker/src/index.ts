@@ -27,7 +27,7 @@ export default {
     }
 
     if (url.pathname.startsWith("/api/tasks")) {
-      return handleRest(request, env);
+      return handleRest(request, env, ctx);
     }
 
     if (url.pathname === "/mcp") {

@@ -1,6 +1,7 @@
 import { assertRestAuthorized } from "./auth";
 import { HttpError } from "./errors";
 import { errorResponse, json, readJson } from "./http";
+import { notifyDispatcher } from "./notify";
 import {
   claimTaskSchema,
   createTaskSchema,
@@ -31,7 +32,11 @@ function parseFilters(url: URL) {
   });
 }
 
-export async function handleRest(request: Request, env: Env): Promise<Response> {
+export async function handleRest(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+): Promise<Response> {
   try {
     assertRestAuthorized(request, env);
 
@@ -45,7 +50,9 @@ export async function handleRest(request: Request, env: Env): Promise<Response> 
       }
       if (request.method === "POST") {
         const input = createTaskSchema.parse(await readJson(request));
-        return json({ task: await createTask(env.DB, input) }, { status: 201 });
+        const task = await createTask(env.DB, input);
+        notifyDispatcher(env, ctx, task);
+        return json({ task }, { status: 201 });
       }
     }
 

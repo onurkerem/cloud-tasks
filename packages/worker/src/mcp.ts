@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { assertMcpAuthorized } from "./auth";
 import { errorResponse } from "./http";
+import { notifyDispatcher } from "./notify";
 import {
   claimTaskSchema,
   createTaskSchema,
@@ -33,7 +34,7 @@ function result(data: unknown) {
   };
 }
 
-function createServer(env: Env) {
+function createServer(env: Env, ctx: ExecutionContext) {
   const server = new McpServer({ name: "cloud-tasks", version: "1.0.0" });
 
   server.registerTool(
@@ -51,7 +52,11 @@ function createServer(env: Env) {
       outputSchema: { task: taskSchema },
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async (input) => result({ task: await createTask(env.DB, createTaskSchema.parse(input)) }),
+    async (input) => {
+      const task = await createTask(env.DB, createTaskSchema.parse(input));
+      notifyDispatcher(env, ctx, task);
+      return result({ task });
+    },
   );
 
   server.registerTool(
@@ -148,7 +153,7 @@ export async function handleMcp(
 ): Promise<Response> {
   try {
     await assertMcpAuthorized(request, env);
-    return createMcpHandler(createServer(env))(request, env, ctx);
+    return createMcpHandler(createServer(env, ctx))(request, env, ctx);
   } catch (error) {
     return errorResponse(error);
   }
