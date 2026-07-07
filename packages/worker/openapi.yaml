@@ -75,8 +75,39 @@ paths:
                       - /api/tasks
                       - /api/tasks/:id
                       - /api/tasks/claim
+                      - /api/mcp
                       - /mcp
                 required: [service, endpoints]
+
+  /api/mcp:
+    post:
+      tags: [Meta]
+      summary: MCP endpoint (API-key auth)
+      description: >
+        Model Context Protocol endpoint exposing the task tools over Streamable HTTP,
+        authenticated with the same `API_KEY` secret as the REST API (via `x-api-key` or
+        `Authorization: Bearer`). Unlike the `/mcp` endpoint — which requires a Cloudflare
+        Access JWT — this endpoint uses a static key, so persistent local MCP clients
+        (e.g. Codex, Claude Code) are not affected by Access session expiry.
+        The request body is a JSON-RPC 2.0 message; responses are streamed as
+        `text/event-stream`.
+      operationId: mcpApiKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: A JSON-RPC 2.0 request (e.g. `tools/list`, `tools/call`).
+      responses:
+        "200":
+          description: JSON-RPC response streamed as Server-Sent Events.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/tasks:
     get:

@@ -1,7 +1,7 @@
 import { createMcpHandler } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { assertMcpAuthorized } from "./auth";
+import { assertMcpAuthorized, assertRestAuthorized } from "./auth";
 import { errorResponse } from "./http";
 import { notifyDispatcher } from "./notify";
 import {
@@ -146,15 +146,27 @@ function createServer(env: Env, ctx: ExecutionContext) {
   return server;
 }
 
-export async function handleMcp(
+async function serveMcp(
   request: Request,
   env: Env,
   ctx: ExecutionContext,
+  route: string,
+  authorize: () => void | Promise<void>,
 ): Promise<Response> {
   try {
-    await assertMcpAuthorized(request, env);
-    return createMcpHandler(createServer(env, ctx))(request, env, ctx);
+    await authorize();
+    return createMcpHandler(createServer(env, ctx), { route })(request, env, ctx);
   } catch (error) {
     return errorResponse(error);
   }
+}
+
+/** MCP endpoint authenticated with a Cloudflare Access JWT (`/mcp`). */
+export function handleMcp(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  return serveMcp(request, env, ctx, "/mcp", () => assertMcpAuthorized(request, env));
+}
+
+/** MCP endpoint authenticated with the static `API_KEY` secret (`/api/mcp`). */
+export function handleApiMcp(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  return serveMcp(request, env, ctx, "/api/mcp", () => assertRestAuthorized(request, env));
 }

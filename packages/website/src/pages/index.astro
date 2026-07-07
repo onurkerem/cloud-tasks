@@ -40,7 +40,8 @@ const installPrompt = `Install and deploy the open-source "Cloud Tasks" project 
     - the Worker URL,
     - the API_KEY value,
     - the REST API index (<url>/api),
-    - the MCP endpoint (<url>/mcp), protected by Cloudflare Access.`;
+    - the OAuth MCP endpoint (<url>/mcp), protected by Cloudflare Access,
+    - the API-key MCP endpoint (<url>/api/mcp), authenticated with the API_KEY secret (no OAuth — ideal for persistent local MCP clients).`;
 
 const wranglerSnippet = `{
   "name": "cloud-tasks",
@@ -203,8 +204,9 @@ const installerFeatures = [
           >
           <p class="font-body text-on-surface-variant leading-relaxed">
             A REST CRUD API at <code class="font-mono text-sm">/api/tasks</code> and a Model
-            Context Protocol endpoint at <code class="font-mono text-sm">/mcp</code> that exposes
-            the same data as agent tools.
+            Context Protocol endpoint — <code class="font-mono text-sm">/mcp</code> (Cloudflare
+            Access) or <code class="font-mono text-sm">/api/mcp</code> (API key) — that exposes the
+            same data as agent tools.
           </p>
         </div>
         <div
@@ -219,10 +221,12 @@ const installerFeatures = [
             >Secure by default, free to run</h3
           >
           <p class="font-body text-on-surface-variant leading-relaxed">
-            REST requests are gated by an API key (<code class="font-mono text-sm"
-              >Authorization: Bearer</code
-            > or <code class="font-mono text-sm">x-api-key</code>); the production MCP endpoint is
-            protected by Cloudflare Access. Runs entirely on Cloudflare's free-tier Workers + D1.
+            REST and <code class="font-mono text-sm">/api/mcp</code> are gated by an API key (<code
+              class="font-mono text-sm">Authorization: Bearer</code
+            > or <code class="font-mono text-sm">x-api-key</code>); the <code
+              class="font-mono text-sm">/mcp</code
+            > endpoint is protected by Cloudflare Access. Runs entirely on Cloudflare's free-tier
+            Workers + D1.
           </p>
         </div>
       </div>
@@ -318,8 +322,8 @@ const installerFeatures = [
         >
         <p class="font-body text-lg text-on-surface-variant mb-8 leading-relaxed">
           Talk to Cloud Tasks however you like — raw REST for scripts and dashboards, or the MCP
-          endpoint for agents. REST uses your API key; the hosted MCP endpoint uses Cloudflare
-          Access and Managed OAuth.
+          endpoint for agents. REST and <code class="font-mono text-sm">/api/mcp</code> use your API
+          key; <code class="font-mono text-sm">/mcp</code> uses Cloudflare Access and Managed OAuth.
         </p>
         <div class="space-y-4">
           <div class="flex items-start gap-3">
@@ -398,11 +402,22 @@ const installerFeatures = [
           <div class="font-mono text-sm space-y-4">
             <div>
               <span class="text-on-surface-variant opacity-70"
-                ># Production MCP uses Cloudflare Access OAuth</span
+                ># OAuth MCP (Cloudflare Access)</span
               ><br />
               <span class="text-on-surface-variant/70"># Connect OAuth-capable MCP clients to</span
               ><br />
               <span class="text-inverse-on-surface">{workerUrl}/mcp</span>
+            </div>
+            <div>
+              <span class="text-on-surface-variant opacity-70"
+                ># API-key MCP — no OAuth, no session expiry</span
+              ><br />
+              <span class="text-on-surface-variant/70"
+                ># Point persistent local clients (Codex, Claude Code) at</span
+              ><br />
+              <span class="text-inverse-on-surface">{workerUrl}/api/mcp</span>
+              <span class="text-on-surface-variant/70">·</span>
+              <span class="text-inverse-on-surface">"Authorization: Bearer $API_KEY"</span>
             </div>
           </div>
         </div>

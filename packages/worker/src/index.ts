@@ -1,9 +1,9 @@
-import { handleMcp } from "./mcp";
+import { handleApiMcp, handleMcp } from "./mcp";
 import { handleRest } from "./rest";
 import { json } from "./http";
 import type { Env } from "./types";
 
-const endpoints = ["/health", "/api", "/api/tasks", "/api/tasks/:id", "/api/tasks/claim", "/mcp"];
+const endpoints = ["/health", "/api", "/api/tasks", "/api/tasks/:id", "/api/tasks/claim", "/api/mcp", "/mcp"];
 const websiteOnlyHost = "cloud-tasks.keremorenli.com";
 
 function isApiOrMcpPath(pathname: string): boolean {
@@ -24,6 +24,10 @@ export default {
 
     if (url.pathname === "/api" || url.pathname === "/api/") {
       return json({ service: "cloud-tasks", endpoints });
+    }
+
+    if (url.pathname === "/api/mcp") {
+      return handleApiMcp(request, env, ctx);
     }
 
     if (url.pathname.startsWith("/api/tasks")) {

@@ -94,6 +94,29 @@ async function mcp(message: unknown) {
   };
 }
 
+async function apiMcp(message: unknown) {
+  const response = await api("/api/mcp", {
+    method: "POST",
+    headers: {
+      accept: "application/json, text/event-stream",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(message),
+  });
+  const body = await response.text();
+  const dataLine = body.split("\n").find((line) => line.startsWith("data: "));
+  if (!dataLine) {
+    throw new Error(`Expected MCP SSE data line, got: ${body}`);
+  }
+  return {
+    response,
+    body: JSON.parse(dataLine.slice("data: ".length)) as {
+      result?: unknown;
+      error?: unknown;
+    },
+  };
+}
+
 beforeAll(async () => {
   const statements = [
     `CREATE TABLE IF NOT EXISTS tasks (
@@ -296,6 +319,67 @@ describe("MCP task tools", () => {
     expect(callResult.structuredContent.task.status).toBe("todo");
 
     const deleteResponse = await api("/api/tasks/mcp-task-1", { method: "DELETE" });
+    expect(deleteResponse.status).toBe(204);
+  });
+});
+
+describe("MCP task tools over /api/mcp (API-key auth)", () => {
+  it("rejects a missing or wrong API key", async () => {
+    const response = await SELF.fetch("https://example.com/api/mcp", {
+      method: "POST",
+      headers: {
+        accept: "application/json, text/event-stream",
+        "content-type": "application/json",
+        authorization: "Bearer wrong-key",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+    });
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ error: "Unauthorized." });
+  });
+
+  it("lists and calls task tools with the API key", async () => {
+    const listed = await apiMcp({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} });
+    expect(listed.response.status).toBe(200);
+    const toolsResult = listed.body.result as { tools: Array<{ name: string }> };
+    const toolNames = toolsResult.tools.map((tool) => tool.name);
+    expect(toolNames).toEqual(
+      expect.arrayContaining([
+        "create_task",
+        "list_tasks",
+        "get_task",
+        "update_task",
+        "delete_task",
+        "claim_next_task",
+      ]),
+    );
+
+    const created = await apiMcp({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "create_task",
+        arguments: {
+          id: "api-mcp-task-1",
+          description: "Create task through the API-key MCP endpoint",
+          tags: ["mcp", "api"],
+          assignee: "agent-api-mcp",
+          status: "todo",
+        },
+      },
+    });
+    const callResult = created.body.result as {
+      structuredContent: { task: { id: string; tags: string[]; status: string } };
+    };
+    expect(callResult.structuredContent.task.id).toBe("api-mcp-task-1");
+    expect(callResult.structuredContent.task.tags).toEqual(["api", "mcp"]);
+
+    // Written to the same DB — readable over the REST API.
+    const fetched = await api("/api/tasks/api-mcp-task-1");
+    expect(fetched.status).toBe(200);
+
+    const deleteResponse = await api("/api/tasks/api-mcp-task-1", { method: "DELETE" });
     expect(deleteResponse.status).toBe(204);
   });
 });

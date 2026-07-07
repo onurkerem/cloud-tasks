@@ -49,8 +49,11 @@ Run every command from inside the relevant package directory.
 ## Production expectations
 
 - The maintainer runs a real deployment on two custom domains: a website-only host (serves the
-  Astro site; `/api` and `/mcp` must not respond there) and an API host (serves `/api` with API-key
-  auth, and `/mcp` with Cloudflare Access JWT auth only).
+  Astro site; `/api` and `/mcp` must not respond there) and an API host (serves `/api` and
+  `/api/mcp` with API-key auth, and `/mcp` with Cloudflare Access JWT auth). `/api/mcp` exposes
+  the same MCP tools as `/mcp` against the same D1 store, but authenticated with the `API_KEY`
+  secret instead of Cloudflare Access — for persistent local MCP clients unaffected by Access
+  session expiry.
 - The maintainer's actual domains and D1 `database_id` live in
   `packages/worker/wrangler.maintainer.jsonc` — a git-tracked, maintainer-only config file (see its
   header comment). Agents helping the maintainer with production work should read that file
